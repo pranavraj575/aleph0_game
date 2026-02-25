@@ -1,0 +1,76 @@
+
+[tool.setuptools.packages.find]
+exclude = ["data*", "temp*"]
+
+
+
+[project]
+name = "aleph0_game"
+authors = [
+    { name = "Pranav", email = "prajbhan@cs.cmu.edu" },
+]
+dynamic = ["version"]
+description = "implementation of aleph0 games, which have a variable size discrete action set at each move"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    'torch',
+    'torchConvNd',
+    'numpy',
+    'scipy',
+    'matplotlib'
+]
+
+[project.urls]
+Homepage = "https://github.com/pranavraj575/aleph0_games"
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "pyright",
+    "pytest",
+]
+
+[tool.ruff]
+fix = true
+indent-width = 4
+
+[tool.ruff.lint]
+ignore = [
+    "E741",
+]
+extend-select = [
+    "I",
+]
+
+[tool.pyright]
+useLibraryCodeForTypes = false
+reportPrivateImportUsage = false
+reportIncompatibleMethodOverride = false
+# typeCheckingMode = "strict"
+# reportUnknownVariableType = false
+# reportUnknownParameterType = false
+# reportUnknownMemberType = false
+# reportUnknownArgumentType = false
+# reportMissingParameterType = false
+# reportUnusedVariable = false
+# reportMissingTypeArgument = false
+# reportMissingTypeStubs = false
+# reportUnknownLambdaType = false
+# reportAttributeAccessIssue = false
+# reportArgumentType = false
+
+[tool.pytest.ini_options]
+minversion = "9.0"
+addopts = [
+    "--verbose",
+    "--pdb",
+    "--capture=no",
+]
+testpaths = [
+    "test",
+]
+filterwarnings = [
+    "error::RuntimeWarning",
+    "error::UserWarning",
+]
