@@ -16,17 +16,9 @@ Optionally, install with dev tools:
 ```shell
 pip install -e .[dev]
 ```
-
-## Quality control
-
-Format code, lint, and typecheck while editing, and before making a commit:
+If installed with dev, can test installation, and reformat before pushing:
 
 ```shell
+python -m pytest
 ruff check; ruff format; pyright
-```
-
-Run tests:
-
-```shell
-python3 -m pytest
 ```

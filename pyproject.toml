@@ -12,7 +12,6 @@ authors = [
 dynamic = ["version"]
 description = "implementation of aleph0 games, which have a variable size discrete action set at each move"
 readme = "README.md"
-requires-python = ">=3.10"
 dependencies = [
     'torch',
     'torchConvNd',
@@ -61,7 +60,6 @@ reportIncompatibleMethodOverride = false
 # reportArgumentType = false
 
 [tool.pytest.ini_options]
-minversion = "9.0"
 addopts = [
     "--verbose",
     "--pdb",
