@@ -23,18 +23,9 @@ class Game:
         Returns:
         A tuple containing:
             (new state,
+            rewards (tensor),
+            terminal (boolean),
             auxiliary information dictionary)
-        """
-        raise NotImplementedError
-
-    def is_terminal(self, state):
-        """
-        Update the environment.
-
-        Args:
-            state: env state.
-        Returns:
-        whether state is terminal
         """
         raise NotImplementedError
 

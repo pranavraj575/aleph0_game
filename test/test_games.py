@@ -1,16 +1,20 @@
 import pytest
 import torch
 
-from src.games.tictactoe import Tictactoe
+from src.games.tictactoe import MNK
 
 
-@pytest.mark.parametrize("seed", list(range(100)))
-def test_tictactoe(seed):
+@pytest.mark.parametrize("seed", list(range(52)))
+@pytest.mark.parametrize("game", [MNK(3,3,3),
+MNK(5,5,3),
+MNK(5,5,5),
+                                 ])
+def test_game_playthrough(seed,game):
     torch.random.manual_seed(seed)
-    g = Tictactoe()
-    s = g.init_state()
-    while not g.is_terminal(s):
-        actions = torch.stack(torch.where(g.action_mask(s)), dim=-1)
+    s = game.init_state()
+    terminal=False
+    while not terminal:
+        actions = torch.stack(torch.where(game.action_mask(s)), dim=-1)
         idx = torch.randint(0, len(actions), (1,))
         action = actions[idx].flatten()
-        s, _ = g.step(s, action)
+        s, _,terminal, _ = game.step(s, action)
