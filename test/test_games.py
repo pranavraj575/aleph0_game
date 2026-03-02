@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from src.games.tictactoe import MNK
+from src.games.mnk import MNK
 
 
 @pytest.mark.parametrize("seed", list(range(52)))
