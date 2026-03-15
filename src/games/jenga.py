@@ -31,6 +31,8 @@ class Jenga(Game):
         k=3,
         deterministic=False,
         instability_scale=0.0005,
+        position_stdev=0.002,
+        angular_stdev=2.01,
     ):
         """
         :param players: number of players
@@ -43,10 +45,13 @@ class Jenga(Game):
         :param tolerance: tolerance (in meters) to use when determining if a point is within a convex hull
         :param deterministic: whether the game is deterministic
             if true, a tower will fall if there is any layer at which the COM of the tower above it is outside the convex hull of that layer
+                also, there is no randomization in block placements
             if false, a tower will fall probabilitically depending on how far the COM is from being within the convex hull of the support layer
         :param instability_scale: distance (in meters) that it will take for a layer to be .75 likely to fall over
             i.e. if COM is this distance outside of the convex hull of the supporting layer, we will judge that level to be .75 likely to fall over
                 a scaled sigmoid function will accomplish this
+        :param position_stdev: (in meters) stdev of noise to add to the x and y location of blocks upon placement
+        :param angular_stdev: (radians) stdev of noise to add to the angle of blocks upon placement
         """
         self.num_players = players
         self.initial_height = initial_height
@@ -59,6 +64,8 @@ class Jenga(Game):
         )  # convert from kg/m^3 to kg/u^3
         self.tolerance = tolerance / self.scale  # convert from m to u
         self.deterministic = deterministic
+        self.pos_std = position_stdev / self.scale  # convert from m to u
+        self.angular_std = angular_stdev
         self.instability_scale = instability_scale / self.scale  # convert from m to u
         self.sigmoid_constant = np.log(3) / self.instability_scale
         # calculation of .75=1/(1+exp(-cd)) where d=instability_scale
@@ -85,7 +92,11 @@ class Jenga(Game):
 
         yaws = (layer_num % 2) * torch.pi / 2
         # yaws will be [0,0,0, pi/2,pi/2,pi/2,0,0,0,...]
-        blocks = self.generate_random_blocks(means=means, yaws=yaws)
+        blocks = self.generate_random_blocks(
+            means=means,
+            yaws=yaws,
+            deterministic=self.deterministic,
+        )
         tower = blocks.reshape(-1, self.k, self.BLOCK_VEC_DIM)
         return tower
 
@@ -181,7 +192,13 @@ class Jenga(Game):
             )
             return torch.prod(surviving_probs)
 
-    def generate_random_blocks(self, means, yaws, properties=None, pos_std=None):
+    def generate_random_blocks(
+        self,
+        means,
+        yaws,
+        properties=None,
+        deterministic=False,
+    ):
         """
         generates random blocks, centered at specified means (n,3) and yaws (n,)
         if properties is specified (shaped (n,self.BLOCK_VEC_DIM)),
@@ -198,10 +215,9 @@ class Jenga(Game):
             sizes = properties[:, 3:6]
             densities = properties[:, 7:8]
             masses = properties[:, 8:9]
-        if pos_std is None:
-            pos_std = 0.002 / self.scale
-        means[:, :2] += torch.normal(0, pos_std, means[:, :2].shape)
-
+        if not deterministic:
+            means[:, :2] += torch.normal(0, self.pos_std, means[:, :2].shape)
+            yaws += torch.normal(0, self.angular_std, yaws.shape)
         # vectors representing the block's length, after the yaw is applied
         # (num_blocks,2)
         block_lengths = torch.stack(
@@ -278,7 +294,10 @@ class Jenga(Game):
             )
             yaw = torch.tensor(((action[0] % 2) * torch.pi / 2,))
             new_tower[action[0], action[1]] = self.generate_random_blocks(
-                means=mean.unsqueeze(0), yaws=yaw, properties=stored_block.unsqueeze(0)
+                means=mean.unsqueeze(0),
+                yaws=yaw,
+                properties=stored_block.unsqueeze(0),
+                deterministic=self.deterministic,
             )
             new_state = (
                 new_tower,
@@ -397,7 +416,7 @@ class Jenga(Game):
                         means=mean.unsqueeze(0),
                         yaws=yaw,
                         properties=stored_block.unsqueeze(0),
-                        pos_std=0,
+                        deterministic=True,
                     )
                     self.render_block(
                         block=block.flatten(),
@@ -456,14 +475,3 @@ class Jenga(Game):
             label_pos = center + vec * 1.1
             x, y, z = label_pos
             ax.text(x, y, z, label, backgroundcolor="white")
-
-
-if __name__ == "__main__":
-    g = Jenga()
-    s = g.init_state()
-    s, _, _, _ = g.step(s, torch.tensor([0, 0]))
-    s, _, _, _ = g.step(s, torch.tensor([18, 1]))
-    s, _, t, _ = g.step(s, torch.tensor([0, 1]))
-    print(t)
-    g.render_pyplot(s)
-    input()

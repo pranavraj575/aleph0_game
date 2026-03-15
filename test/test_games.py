@@ -13,6 +13,9 @@ from src.games.mnk import MNK
         MNK(5, 5, 3),
         MNK(5, 5, 5),
         Jenga(),
+        Jenga(players=3),
+        Jenga(initial_height=5),
+        Jenga(deterministic=True),
     ],
 )
 def test_game_playthrough(seed, game):
@@ -40,6 +43,7 @@ def equality(a, b):
         Jenga(),
         Jenga(players=3),
         Jenga(initial_height=5),
+        Jenga(deterministic=True),
     ],
 )
 def test_seeded_randomness(seed, game):
