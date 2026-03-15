@@ -5,40 +5,46 @@ from aleph0.examples.chess.game.piece import P
 class Board:
     BOARD_SIZE = 8
     BOARD_SHAPE = (BOARD_SIZE, BOARD_SIZE)
-    BOARD_SQUARES = BOARD_SHAPE[0]*BOARD_SHAPE[1]
+    BOARD_SQUARES = BOARD_SHAPE[0] * BOARD_SHAPE[1]
 
     def __init__(self, board=None):
         if board is None:
-            board = torch.ones(Board.BOARD_SHAPE, dtype=torch.long)*P.EMPTY
+            board = torch.ones(Board.BOARD_SHAPE, dtype=torch.long) * P.EMPTY
             if Board.BOARD_SHAPE == (8, 8):
-                back_rank = [P.UNMOVED_ROOK,
-                             P.KNIGHT,
-                             P.BISHOP,
-                             P.QUEEN,
-                             P.UNMOVED_KING,
-                             P.BISHOP,
-                             P.KNIGHT,
-                             P.UNMOVED_ROOK,
-                             ]
+                back_rank = [
+                    P.UNMOVED_ROOK,
+                    P.KNIGHT,
+                    P.BISHOP,
+                    P.QUEEN,
+                    P.UNMOVED_KING,
+                    P.BISHOP,
+                    P.KNIGHT,
+                    P.UNMOVED_ROOK,
+                ]
             elif Board.BOARD_SHAPE == (5, 5):
-                back_rank = [P.UNMOVED_ROOK,
-                             P.KNIGHT,
-                             P.BISHOP,
-                             P.QUEEN,
-                             P.UNMOVED_KING,
-                             ]
+                back_rank = [
+                    P.UNMOVED_ROOK,
+                    P.KNIGHT,
+                    P.BISHOP,
+                    P.QUEEN,
+                    P.UNMOVED_KING,
+                ]
             else:
                 raise Exception("NO DEFAULT FOR BOARD SIZE " + str(Board.BOARD_SIZE))
-            for i, row in enumerate((back_rank, [P.UNMOVED_PAWN for _ in range(Board.BOARD_SIZE)])):
-                board[i] = torch.tensor([P.as_player(piece, P.P0)
-                                         for piece in row])
+            for i, row in enumerate(
+                (back_rank, [P.UNMOVED_PAWN for _ in range(Board.BOARD_SIZE)])
+            ):
+                board[i] = torch.tensor([P.as_player(piece, P.P0) for piece in row])
 
-                board[Board.BOARD_SIZE - i - 1] = torch.tensor([P.as_player(piece, P.P1)
-                                                                for piece in row])
+                board[Board.BOARD_SIZE - i - 1] = torch.tensor(
+                    [P.as_player(piece, P.P1) for piece in row]
+                )
         self.board = board
 
     def flipped(self):
-        return Board(board=P.flip_piece(torch.rot90(self.board, 2)), )
+        return Board(
+            board=P.flip_piece(torch.rot90(self.board, 2)),
+        )
 
     def get_piece(self, idx):
         return self.board[idx].item()
@@ -111,9 +117,9 @@ class Board:
         :return: iterable of (i,j)
         """
 
-        for i, j in zip(*torch.where(
-                torch.eq(torch.sign(self.board), P.player_to_sign(player))
-        )):
+        for i, j in zip(
+            *torch.where(torch.eq(torch.sign(self.board), P.player_to_sign(player)))
+        ):
             yield i.item(), j.item()
 
     def clone(self):
@@ -123,33 +129,32 @@ class Board:
         return Board(board=self.board.clone())
 
     def __str__(self):
-        s = ''
+        s = ""
         for i in range(Board.BOARD_SIZE - 1, -1, -1):
             row = self.board[i]
-            s += '|' + ('|'.join([
-                P.disp(piece)
-                for piece in row])) + '|'
-            s += '\n'
-            s += '-'*(len(row)*2 + 1)
-            s += '\n'
+            s += "|" + ("|".join([P.disp(piece) for piece in row])) + "|"
+            s += "\n"
+            s += "-" * (len(row) * 2 + 1)
+            s += "\n"
         return s
 
     @staticmethod
     def empty_string():
-        s = ''
-        for row in range(2*Board.BOARD_SIZE):
-            s += ' '*(2*Board.BOARD_SIZE + 1)
-            s += '\n'
+        s = ""
+        for row in range(2 * Board.BOARD_SIZE):
+            s += " " * (2 * Board.BOARD_SIZE + 1)
+            s += "\n"
         return s
 
     def get_board_as_indices(self):
         return P.number(self.board)
 
-    def move_piece_on_board(self,
-                            idx,
-                            end_idx,
-                            mutate,
-                            ):
+    def move_piece_on_board(
+        self,
+        idx,
+        end_idx,
+        mutate,
+    ):
         """
         moves piece from idx to end_idx, returns resulting board
         Args:
@@ -171,7 +176,7 @@ class Board:
         return new_board, og_piece, capture
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     b = Board()
     print(b)
     b, _, _ = b.move_piece_on_board((1, 0), (3, 0), mutate=True)

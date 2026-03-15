@@ -10,21 +10,23 @@ from aleph0.game import FixedSizeSelectionGame
 
 
 class Chess2d(Chess5d, FixedSizeSelectionGame):
-    def __init__(self,
-                 initial_board=None,
-                 initial_timeline=None,
-                 current_player=P.P0,
-                 first_player=P.P0,
-                 save_moves=True,
-                 term_ev=None,
-                 ):
-        super().__init__(initial_board=initial_board,
-                         initial_timeline=initial_timeline,
-                         current_player=current_player,
-                         first_player=first_player,
-                         save_moves=save_moves,
-                         term_ev=term_ev,
-                         )
+    def __init__(
+        self,
+        initial_board=None,
+        initial_timeline=None,
+        current_player=P.P0,
+        first_player=P.P0,
+        save_moves=True,
+        term_ev=None,
+    ):
+        super().__init__(
+            initial_board=initial_board,
+            initial_timeline=initial_timeline,
+            current_player=current_player,
+            first_player=first_player,
+            save_moves=save_moves,
+            term_ev=term_ev,
+        )
 
     def _piece_possible_moves(self, global_idx, castling=True):
         # only return moves that do not jump time-dimensions
@@ -79,9 +81,13 @@ class Chess2d(Chess5d, FixedSizeSelectionGame):
             save_moves=self.save_moves,
             term_ev=self.term_ev,
         )
-        out.turn_history = [[(Chess5d._flip_move(move), [-dim for dim in dims_spawned])
-                             for (move, dims_spawned) in turn]
-                            for turn in self.turn_history]
+        out.turn_history = [
+            [
+                (Chess5d._flip_move(move), [-dim for dim in dims_spawned])
+                for (move, dims_spawned) in turn
+            ]
+            for turn in self.turn_history
+        ]
         return out
 
     def prune_timeline(self):
@@ -101,12 +107,13 @@ class Chess2d(Chess5d, FixedSizeSelectionGame):
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
     def clone(self):
-        game = Chess2d(initial_timeline=self.get_current_timeline().clone(),
-                       save_moves=self.save_moves,
-                       current_player=self.current_player,
-                       first_player=self.first_player,
-                       term_ev=self.term_ev,
-                       )
+        game = Chess2d(
+            initial_timeline=self.get_current_timeline().clone(),
+            save_moves=self.save_moves,
+            current_player=self.current_player,
+            first_player=self.first_player,
+            term_ev=self.term_ev,
+        )
         game.turn_history = copy.deepcopy(self.turn_history)
         game._prune_history()
         return game
@@ -128,7 +135,7 @@ class Chess2d(Chess5d, FixedSizeSelectionGame):
         if terminal:
             out.term_ev = out._terminal_eval(mutation=False)
         elif out.material_draw():
-            out.term_ev = (.5, .5)  # draw by lack of mating material
+            out.term_ev = (0.5, 0.5)  # draw by lack of mating material
         out.prune_timeline()
         return out
 
@@ -170,14 +177,20 @@ class Chess2d(Chess5d, FixedSizeSelectionGame):
         (xlen, ylen) = index_shape[:2]
 
         # create index set
-        X = torch.cat((
-            torch.arange(xlen).view((xlen, 1, 1)),
-            torch.zeros((xlen, 1, 1)),
-        ), dim=-1)
-        Y = torch.cat((
-            torch.zeros((1, ylen, 1)),
-            torch.arange(ylen).view((1, ylen, 1)),
-        ), dim=-1)
+        X = torch.cat(
+            (
+                torch.arange(xlen).view((xlen, 1, 1)),
+                torch.zeros((xlen, 1, 1)),
+            ),
+            dim=-1,
+        )
+        Y = torch.cat(
+            (
+                torch.zeros((1, ylen, 1)),
+                torch.arange(ylen).view((1, ylen, 1)),
+            ),
+            dim=-1,
+        )
         return (board_obs,), X + Y, torch.zeros(vec_shape)
 
     @staticmethod
@@ -210,10 +223,10 @@ class Chess2d(Chess5d, FixedSizeSelectionGame):
 
         I, J = Board.BOARD_SHAPE
         num_squares = Board.BOARD_SQUARES
-        start_idx = idx//num_squares
-        start_idx = start_idx//J, start_idx%J
-        end_idx = idx%num_squares
-        end_idx = end_idx//J, end_idx%J
+        start_idx = idx // num_squares
+        start_idx = start_idx // J, start_idx % J
+        end_idx = idx % num_squares
+        end_idx = end_idx // J, end_idx % J
         return (start_idx, end_idx)
 
     def move_to_idx(self, move):
@@ -221,7 +234,7 @@ class Chess2d(Chess5d, FixedSizeSelectionGame):
         if move == Chess2d.END_TURN:
             return self.possible_move_cnt() - 1
         (i1, j1), (i2, j2) = move
-        return Board.BOARD_SQUARES*(i1*J + j1) + i2*J + j2
+        return Board.BOARD_SQUARES * (i1 * J + j1) + i2 * J + j2
 
     @property
     def representation(self):
@@ -233,12 +246,13 @@ class Chess2d(Chess5d, FixedSizeSelectionGame):
 
         should return clones of any internal variables
         """
-        return (self.multiverse.main_timeline.representation,
-                self.current_player,
-                self.first_player,
-                copy.deepcopy(self.turn_history),
-                self.term_ev,
-                )
+        return (
+            self.multiverse.main_timeline.representation,
+            self.current_player,
+            self.first_player,
+            copy.deepcopy(self.turn_history),
+            self.term_ev,
+        )
 
     @staticmethod
     def from_representation(representation):
@@ -249,12 +263,13 @@ class Chess2d(Chess5d, FixedSizeSelectionGame):
         Returns: SubsetGame object
         """
         tl_rep, current_player, first_player, turn_history, term_ev = representation
-        game = Chess2d(initial_board=None,
-                       initial_timeline=Timeline.from_representation(tl_rep),
-                       current_player=current_player,
-                       first_player=first_player,
-                       term_ev=term_ev,
-                       )
+        game = Chess2d(
+            initial_board=None,
+            initial_timeline=Timeline.from_representation(tl_rep),
+            current_player=current_player,
+            first_player=first_player,
+            term_ev=term_ev,
+        )
         game.turn_history = turn_history
         return game
 
@@ -264,7 +279,7 @@ class Chess2d(Chess5d, FixedSizeSelectionGame):
         return tl.__str__()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from aleph0.algs import Human, play_game
 
     board = torch.zeros(Board.BOARD_SHAPE, dtype=torch.long)
@@ -285,15 +300,17 @@ if __name__ == '__main__':
     game = game.make_move(((0, 0), (0, 1)))
     print(game)
     assert game.is_terminal()
-    print('expected draw:', game.get_result())
-    assert game.get_result() == (.5, .5)
+    print("expected draw:", game.get_result())
+    assert game.get_result() == (0.5, 0.5)
 
     # (1b) in Chess5d._terminal_eval: dumb move, in check
     game = root_game.make_move(((0, 1), (6, 7)))
     game = game.make_move(((0, 0), (1, 1)))
     print(game)
     assert game.is_terminal()
-    print('expected p0 win:', game.get_result())  # P0 should win, as P1 could have taken the queen but did not
+    print(
+        "expected p0 win:", game.get_result()
+    )  # P0 should win, as P1 could have taken the queen but did not
     assert game.get_result() == (1, 0)
 
     # (2b) in Chess5d._terminal_eval: dumb move, not in check
@@ -301,7 +318,9 @@ if __name__ == '__main__':
     game = game.make_move(((0, 0), (1, 1)))
     print(game)
     assert game.is_terminal()
-    print('expected p0 win:', game.get_result())  # P0 should win, as P1 could have taken the queen but did not
+    print(
+        "expected p0 win:", game.get_result()
+    )  # P0 should win, as P1 could have taken the queen but did not
     assert game.get_result() == (1, 0)
 
     # stalemate
@@ -314,13 +333,13 @@ if __name__ == '__main__':
     # however, this will return false, since
     #   we will do a stalemate check next turn, when P1 fails to make a valid turn
     #   this is so we do not need to compute stalemate every turn
-    print('expected false:', game.is_terminal())
+    print("expected false:", game.is_terminal())
     assert not game.is_terminal()
     game = game.make_move(next(game.get_all_valid_moves()))
-    print('expected true:', game.is_terminal())
+    print("expected true:", game.is_terminal())
     assert game.is_terminal()
-    print('expected draw:', game.get_result())
-    assert game.get_result() == (.5, .5)
+    print("expected draw:", game.get_result())
+    assert game.get_result() == (0.5, 0.5)
 
     # checkmate
     game = root_game.make_move(((0, 1), (0, 6)))
@@ -328,13 +347,13 @@ if __name__ == '__main__':
     game = game.make_move(((1, 0), (1, 7)))
 
     # again, this is checkmate, but we do the check next turn
-    print('expected false:', game.is_terminal())
+    print("expected false:", game.is_terminal())
     assert not game.is_terminal()
     game = game.make_move(next(game.get_all_valid_moves()))
     print(game)
-    print('expected true:', game.is_terminal())
+    print("expected true:", game.is_terminal())
     assert game.is_terminal()
-    print('expected P0 win:', game.get_result())
+    print("expected P0 win:", game.get_result())
     assert game.get_result() == (1, 0)
 
     quit()

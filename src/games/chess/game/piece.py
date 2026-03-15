@@ -33,7 +33,7 @@ class P:
 
     # asumeing PASSANTABLE PAWN is the largest piece id
     # double this, plus the empty square
-    TOTAL_PIECES = PASSANTABLE_PAWN*2 + 1
+    TOTAL_PIECES = PASSANTABLE_PAWN * 2 + 1
 
     @staticmethod
     def flip_player(player):
@@ -77,7 +77,7 @@ class P:
         Returns:
             piece as player's piece
         """
-        return abs(piece)*P.player_to_sign(player)
+        return abs(piece) * P.player_to_sign(player)
 
     @staticmethod
     def is_player(player):
@@ -97,7 +97,7 @@ class P:
         Returns:
             1 for P0, -1 for P1
         """
-        return (1 - 2*player)
+        return 1 - 2 * player
 
     @staticmethod
     def player_to_idx(player):
@@ -127,7 +127,7 @@ class P:
     def moved(piece):
         if P.is_unmoved(piece):
             # go UNMOVED_SHIFT in the direction of 0
-            return -P._UNMOVED_SHIFT*P.player_to_sign(P.player_of(piece)) + piece
+            return -P._UNMOVED_SHIFT * P.player_to_sign(P.player_of(piece)) + piece
         if P.en_passantable(piece):
             return P.as_player(P.PAWN, P.player_of(piece))
         return piece
@@ -142,15 +142,15 @@ class P:
         player = P.player_of(piece)
         if player is not None and (P.piece_id(piece) == P.PAWN):
             if P.is_unmoved(piece):
-                return P.UNMOVED_PAWN*P.player_to_sign(player)
+                return P.UNMOVED_PAWN * P.player_to_sign(player)
             else:
-                return P.PAWN*P.player_to_sign(player)
+                return P.PAWN * P.player_to_sign(player)
         else:
             return piece
 
     @staticmethod
     def add_passant(piece):
-        return P.player_to_sign(P.player_of(piece))*P.PASSANTABLE_PAWN
+        return P.player_to_sign(P.player_of(piece)) * P.PASSANTABLE_PAWN
 
     @staticmethod
     def en_passantable(piece):
@@ -158,7 +158,7 @@ class P:
 
     @staticmethod
     def disp(piece):
-        d_piece = ' pkrnbqcudb'[P.piece_id(piece)]
+        d_piece = " pkrnbqcudb"[P.piece_id(piece)]
         if P.player_of(piece) == P.P0:
             return d_piece.upper()
         return d_piece
@@ -181,7 +181,7 @@ class P:
         return number - P.PASSANTABLE_PAWN
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     p = P.PAWN
     print(p)
     print(P.disp(p))

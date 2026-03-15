@@ -3,7 +3,12 @@ from aleph0.examples.chess.game.timeline import Timeline
 
 
 class Multiverse:
-    def __init__(self, main_timeline: Timeline, up_list: [Timeline] = None, down_list: [Timeline] = None):
+    def __init__(
+        self,
+        main_timeline: Timeline,
+        up_list: [Timeline] = None,
+        down_list: [Timeline] = None,
+    ):
         self.main_timeline = main_timeline
         if up_list is None:
             up_list = []
@@ -16,18 +21,20 @@ class Multiverse:
 
     @property
     def representation(self):
-        return (self.main_timeline.representation,
-                [timeline.representation for timeline in self.up_list],
-                [timeline.representation for timeline in self.down_list],
-                )
+        return (
+            self.main_timeline.representation,
+            [timeline.representation for timeline in self.up_list],
+            [timeline.representation for timeline in self.down_list],
+        )
 
     @staticmethod
     def from_representation(representation):
         main_rep, up_list, down_list = representation
-        return Multiverse(main_timeline=Timeline.from_representation(main_rep),
-                          up_list=[Timeline.from_representation(rep) for rep in up_list],
-                          down_list=[Timeline.from_representation(rep) for rep in down_list],
-                          )
+        return Multiverse(
+            main_timeline=Timeline.from_representation(main_rep),
+            up_list=[Timeline.from_representation(rep) for rep in up_list],
+            down_list=[Timeline.from_representation(rep) for rep in down_list],
+        )
 
     def _set_max_length(self):
         self.max_length = self.main_timeline.end_time() + 1
@@ -38,15 +45,27 @@ class Multiverse:
     def clone(self):
         return Multiverse(
             main_timeline=self.main_timeline.clone(),
-            up_list=[None if timeline is None else timeline.clone() for timeline in self.up_list],
-            down_list=[None if timeline is None else timeline.clone() for timeline in self.down_list],
+            up_list=[
+                None if timeline is None else timeline.clone()
+                for timeline in self.up_list
+            ],
+            down_list=[
+                None if timeline is None else timeline.clone()
+                for timeline in self.down_list
+            ],
         )
 
     def flipped(self):
         return Multiverse(
             main_timeline=self.main_timeline.flipped(),
-            up_list=[None if timeline is None else timeline.flipped() for timeline in self.down_list],
-            down_list=[None if timeline is None else timeline.flipped() for timeline in self.up_list],
+            up_list=[
+                None if timeline is None else timeline.flipped()
+                for timeline in self.down_list
+            ],
+            down_list=[
+                None if timeline is None else timeline.flipped()
+                for timeline in self.up_list
+            ],
         )
 
     def get_board(self, td_idx):
@@ -142,17 +161,17 @@ class Multiverse:
             self._set_max_length()
 
     def __str__(self):
-        s = ''
+        s = ""
         overall_range = self.get_range()
         for dim in range(overall_range[1], overall_range[0] - 1, -1):
             timeline = self.get_timeline(dim_idx=dim)
-            s += 'dimension ' + str(dim) + ':\n'
+            s += "dimension " + str(dim) + ":\n"
             s += timeline.__str__()
-            s += '\n\n'
+            s += "\n\n"
         return s
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     m = Multiverse(main_timeline=Timeline(board_list=[Board()]))
     m.add_board((1, -1), Board())
     print(m)

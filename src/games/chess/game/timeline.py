@@ -16,9 +16,12 @@ class Timeline:
     @staticmethod
     def from_representation(representation):
         board_list, start_idx = representation
-        return Timeline(board_list=[Board.from_representation(board_rep) for board_rep in board_list],
-                        start_idx=start_idx,
-                        )
+        return Timeline(
+            board_list=[
+                Board.from_representation(board_rep) for board_rep in board_list
+            ],
+            start_idx=start_idx,
+        )
 
     def is_empty(self):
         return len(self.board_list) == 0
@@ -30,9 +33,10 @@ class Timeline:
         )
 
     def flipped(self):
-        return Timeline(board_list=[board.flipped() for board in self.board_list],
-                        start_idx=self.start_idx,
-                        )
+        return Timeline(
+            board_list=[board.flipped() for board in self.board_list],
+            start_idx=self.start_idx,
+        )
 
     def get_board(self, real_time: int):
         """
@@ -44,7 +48,9 @@ class Timeline:
             return None
 
     def get_board_as_idxs_stack(self):
-        return torch.stack([board.get_board_as_indices() for board in self.board_list], dim=0)
+        return torch.stack(
+            [board.get_board_as_indices() for board in self.board_list], dim=0
+        )
 
     def get_time_range(self):
         """
@@ -69,31 +75,33 @@ class Timeline:
         self.board_list.pop()
 
     def __str__(self):
-        s = ''
+        s = ""
         interspace = len(str(self.end_time())) + 6
 
-        str_boards = [Board.empty_string()
-                      for _ in range(self.start_idx)] + [board.__str__()
-                                                         for board in self.board_list]
-        str_boards = [s.split('\n') for s in str_boards]
-        for row in range(2*Board.BOARD_SIZE):
+        str_boards = [Board.empty_string() for _ in range(self.start_idx)] + [
+            board.__str__() for board in self.board_list
+        ]
+        str_boards = [s.split("\n") for s in str_boards]
+        for row in range(2 * Board.BOARD_SIZE):
             if row == Board.BOARD_SIZE:
-                midstring = ''
+                midstring = ""
                 for time in range(len(str_boards)):
-                    midtime = '   t' + str(time) + ': '
+                    midtime = "   t" + str(time) + ": "
                     while len(midtime) < interspace:
-                        midtime = ' ' + midtime
+                        midtime = " " + midtime
                     midstring += midtime
                     midstring += str_boards[time][row]
 
                 s += midstring
             else:
-                s += (' '*interspace) + (' '*interspace).join([str_board[row] for str_board in str_boards])
-            s += '\n'
+                s += (" " * interspace) + (" " * interspace).join(
+                    [str_board[row] for str_board in str_boards]
+                )
+            s += "\n"
         return s
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     t = Timeline()
     t.append(Board())
     print(t)

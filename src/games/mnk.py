@@ -4,10 +4,11 @@ from .game import Game
 
 
 class MNK(Game):
-    def __init__(self,m,n,k):
-        self.m=m
-        self.n=n
-        self.k=k
+    def __init__(self, m, n, k):
+        self.m = m
+        self.n = n
+        self.k = k
+
     def num_agents(self):
         return 2
 
@@ -19,28 +20,29 @@ class MNK(Game):
         board, player = state
         new_board = board.clone()
         new_board[action[0], action[1]] = player
-        game_won=self.check_winner(torch.eq(new_board,player))
-        game_won=float(game_won)
+        game_won = self.check_winner(torch.eq(new_board, player))
+        game_won = float(game_won)
         # if no one wan, rewards are [0,0]
         # if player 1 won then player=1, and rewards are [1,-1]
         # if player -1 won then player=-1 and rewards are [-1,1]
-        rewards=torch.tensor([game_won*player,-game_won*player])
-        terminal=game_won or torch.all(torch.not_equal(new_board, 0))
+        rewards = torch.tensor([game_won * player, -game_won * player])
+        terminal = game_won or torch.all(torch.not_equal(new_board, 0))
         new_state = new_board, -player
-        return new_state, rewards,terminal, dict()
+        return new_state, rewards, terminal, dict()
 
     def player(self, state):
         _, player = state
         return player
 
     def check_winner(self, board):
-        for weights in [torch.ones(1,1,1,self.k),
-                        torch.ones(1, 1, self.k,1),
-            torch.eye(self.k).reshape(1,1,self.k,self.k),
-            torch.eye(self.k)[list(range(self.k))[::-1]].reshape(1,1,self.k,self.k),
-                        ]:
-            conv_res=torch.conv2d(1.*board.unsqueeze(0),weights)
-            if torch.any(torch.eq(conv_res,self.k)):
+        for weights in [
+            torch.ones(1, 1, 1, self.k),
+            torch.ones(1, 1, self.k, 1),
+            torch.eye(self.k).reshape(1, 1, self.k, self.k),
+            torch.eye(self.k)[list(range(self.k))[::-1]].reshape(1, 1, self.k, self.k),
+        ]:
+            conv_res = torch.conv2d(1.0 * board.unsqueeze(0), weights)
+            if torch.any(torch.eq(conv_res, self.k)):
                 return True
         return False
 
@@ -83,6 +85,8 @@ class MNK(Game):
             .replace("1", "O")
             + "\n---"
         )
+
+
 class TicTacToe(MNK):
     def __init__(self):
-        super().__init__(m=3,n=3,k=3)
+        super().__init__(m=3, n=3, k=3)

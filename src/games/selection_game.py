@@ -36,14 +36,16 @@ class SelectionGame:
             (if we want the 'center' piece to be 0)
         a T dimensional vector with information such as the current player
     """
+
     COMPRESSABLE = False
 
-    def __init__(self,
-                 num_players,
-                 current_player,
-                 subset_size,
-                 special_moves,
-                 ):
+    def __init__(
+        self,
+        num_players,
+        current_player,
+        subset_size,
+        special_moves,
+    ):
         """
         Args:
             current_player: player whose move it is
@@ -84,7 +86,9 @@ class SelectionGame:
             if len(move_prefix) == self.selection_size:
                 yield move_prefix
             else:
-                for next_move in self.get_valid_next_selections(move_prefix=move_prefix):
+                for next_move in self.get_valid_next_selections(
+                    move_prefix=move_prefix
+                ):
                     new_prefix = move_prefix + (next_move,)
                     for valid_move in HELP_MEEEE(move_prefix=new_prefix):
                         yield valid_move
@@ -192,7 +196,11 @@ class SelectionGame:
     @property
     def batch_obs(self):
         boards, indices, vec = self.observation
-        return tuple(board.unsqueeze(0) for board in boards), indices.unsqueeze(0), vec.unsqueeze(0)
+        return (
+            tuple(board.unsqueeze(0) for board in boards),
+            indices.unsqueeze(0),
+            vec.unsqueeze(0),
+        )
 
     @property
     def permutation_to_standard_pos(self):
@@ -243,7 +251,7 @@ class SelectionGame:
         we represnet the underlying set as a product of finite underlying sets to make it easier to mix input modes
         """
         obs_shapes, pos_shape, _ = self.observation_shape
-        return tuple(tuple(obs_shape)[len(pos_shape) - 1:] for obs_shape in obs_shapes)
+        return tuple(tuple(obs_shape)[len(pos_shape) - 1 :] for obs_shape in obs_shapes)
 
     def clone(self):
         return self.from_representation(self.representation)
@@ -295,11 +303,12 @@ class SelectionGame:
 
 class FixedSizeSelectionGame(SelectionGame):
     def __init__(self, num_players, current_player, subset_size, special_moves):
-        super().__init__(num_players=num_players,
-                         current_player=current_player,
-                         subset_size=subset_size,
-                         special_moves=special_moves,
-                         )
+        super().__init__(
+            num_players=num_players,
+            current_player=current_player,
+            subset_size=subset_size,
+            special_moves=special_moves,
+        )
 
     def get_valid_next_selections(self, move_prefix=()):
         """
@@ -414,14 +423,16 @@ class FixedSizeSelectionGame(SelectionGame):
         """
         convert idx into a valid move
         """
-        if 'ind_to_move' not in dir(self):
+        if "ind_to_move" not in dir(self):
             self.ind_to_move = []
             _, pos_shape, _ = self.fixed_obs_shape()
             board_shape = pos_shape[:-1]
 
             all_indices = itertools.product(*[range(t) for t in board_shape])
             # all possible selections of self.subset_size
-            self.ind_to_move = list(itertools.product(all_indices, repeat=self.selection_size))
+            self.ind_to_move = list(
+                itertools.product(all_indices, repeat=self.selection_size)
+            )
             self.ind_to_move.extend(list(self.special_moves))
         return self.ind_to_move[idx]
 
