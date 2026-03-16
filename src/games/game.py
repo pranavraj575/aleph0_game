@@ -61,3 +61,11 @@ class Game:
     def example_action_mask(self):
         state = self.init_state()
         return self.action_mask(state=state)
+
+    def render(self, state):
+        """
+        render a state
+        Args:
+            state: The state of the environment.
+        """
+        raise NotImplementedError

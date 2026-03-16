@@ -363,7 +363,7 @@ class Jenga(Game):
         """
         return self.agent_observe(state)
 
-    def render_pyplot(self, state, ax=None):
+    def render(self, state, ax=None):
         tower, _, phase, stored_block = state
         if ax is None:
             ax = plt.figure().add_subplot(projection="3d")

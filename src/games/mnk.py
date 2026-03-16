@@ -72,7 +72,7 @@ class MNK(Game):
         board, _ = state
         return board.unsqueeze(0) == torch.tensor([0, 1, -1]).reshape(-1, 1, 1)
 
-    def display(self, state):
+    def board_string(self, state):
         board, _ = state
         return (
             "---\n"
@@ -85,6 +85,9 @@ class MNK(Game):
             .replace("1", "O")
             + "\n---"
         )
+
+    def render(self, state):
+        print(self.board_string(state))
 
 
 class TicTacToe(MNK):
