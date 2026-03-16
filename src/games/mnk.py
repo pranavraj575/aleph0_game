@@ -86,7 +86,8 @@ class MNK(Game):
             + "\n---"
         )
 
-    def render(self, state):
+    def render(self, canvas, state):
+        # canvas is not needed, just print it to terminal
         print(self.board_string(state))
 
 

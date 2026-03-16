@@ -62,10 +62,19 @@ class Game:
         state = self.init_state()
         return self.action_mask(state=state)
 
-    def render(self, state):
+    def get_canvas(self):
+        """
+        :return: canvas object to render game on (if relevant)
+        """
+        pass
+
+    def render(self, canvas, state):
         """
         render a state
         Args:
             state: The state of the environment.
         """
         raise NotImplementedError
+
+    def close_canvas(self, canvas):
+        pass

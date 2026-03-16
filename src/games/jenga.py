@@ -32,7 +32,7 @@ class Jenga(Game):
         deterministic=False,
         instability_scale=0.0005,
         position_stdev=0.002,
-        angular_stdev=2.01,
+        angular_stdev=0.01,
     ):
         """
         :param players: number of players
@@ -363,18 +363,23 @@ class Jenga(Game):
         """
         return self.agent_observe(state)
 
-    def render(self, state, ax=None):
-        tower, _, phase, stored_block = state
-        if ax is None:
-            ax = plt.figure().add_subplot(projection="3d")
+    def get_canvas(self):
+        plt.ion()
+        plt.show()
+        return plt.figure().add_subplot(projection="3d")
 
-        ax.set_aspect("equal")
-        ax.set_xticks(())
-        ax.set_yticks(())
-        ax.set_zticks(())
+    def close_canvas(self, canvas):
+        plt.close()
+
+    def render(self, canvas, state):
+        tower, _, phase, stored_block = state
+        canvas.clear()
+        canvas.set_xticks(())
+        canvas.set_yticks(())
+        canvas.set_zticks(())
 
         colors = ["purple", "red", "blue", "orange", "brown", "yellow"]
-        counter = 0
+        color_counter = 0
         top_layer_filled = torch.all(tower[-1, :, 8] != 0)
 
         place_height = len(tower) - 1 + top_layer_filled
@@ -383,6 +388,7 @@ class Jenga(Game):
 
         for h in range(place_height + 1):
             for i in range(self.k):
+                color_counter += 1
                 label = str((h, i))
 
                 if h >= len(tower):
@@ -398,12 +404,11 @@ class Jenga(Game):
                         label = None
                     self.render_block(
                         block=block,
-                        ax=ax,
-                        color=colors[counter % len(colors)],
+                        ax=canvas,
+                        color=colors[color_counter % len(colors)],
                         label=label,
                         only_frame=False,
                     )
-                    counter += 1
                 elif h == place_height and phase == 1:
                     # render the frames of the block placement
                     mean = torch.tensor([0, 0, self.std_block_size[2] * (h + 0.5)])
@@ -420,15 +425,13 @@ class Jenga(Game):
                     )
                     self.render_block(
                         block=block.flatten(),
-                        ax=ax,
+                        ax=canvas,
                         label=label,
                         color="black",
                         linestyle="--",
                         only_frame=True,
                     )
-
-        plt.ion()
-        plt.show()
+        canvas.set_aspect("equal")
 
     def render_block(self, block, ax, only_frame, label=None, **plot_kwargs):
         vertices = block[9:17].reshape(-1, 2)

@@ -4,20 +4,19 @@ import torch
 from src.games.jenga import Jenga
 from src.games.mnk import MNK
 
+games = [
+    MNK(3, 3, 3),
+    MNK(5, 5, 3),
+    MNK(5, 5, 5),
+    Jenga(),
+    Jenga(players=3),
+    Jenga(initial_height=5),
+    Jenga(deterministic=True),
+]
+
 
 @pytest.mark.parametrize("seed", list(range(13)))
-@pytest.mark.parametrize(
-    "game",
-    [
-        MNK(3, 3, 3),
-        MNK(5, 5, 3),
-        MNK(5, 5, 5),
-        Jenga(),
-        Jenga(players=3),
-        Jenga(initial_height=5),
-        Jenga(deterministic=True),
-    ],
-)
+@pytest.mark.parametrize("game", games)
 def test_game_playthrough(seed, game):
     torch.random.manual_seed(seed)
     s = game.init_state()
@@ -29,6 +28,22 @@ def test_game_playthrough(seed, game):
         s, _, terminal, _ = game.step(s, action)
 
 
+@pytest.mark.parametrize("seed", list(range(2)))
+@pytest.mark.parametrize("game", games)
+def test_game_render(seed, game):
+    torch.random.manual_seed(seed)
+    s = game.init_state()
+    terminal = False
+    canvas = game.get_canvas()
+    while not terminal:
+        actions = torch.stack(torch.where(game.action_mask(s)), dim=-1)
+        idx = torch.randint(0, len(actions), (1,))
+        action = actions[idx].flatten()
+        game.render(canvas, s)
+        s, _, terminal, _ = game.step(s, action)
+    game.close_canvas(canvas)
+
+
 def equality(a, b):
     if torch.is_tensor(a):
         return torch.is_tensor(b) and torch.equal(a, b)
@@ -37,15 +52,7 @@ def equality(a, b):
 
 
 @pytest.mark.parametrize("seed", list(range(52)))
-@pytest.mark.parametrize(
-    "game",
-    [
-        Jenga(),
-        Jenga(players=3),
-        Jenga(initial_height=5),
-        Jenga(deterministic=True),
-    ],
-)
+@pytest.mark.parametrize("game", games)
 def test_seeded_randomness(seed, game):
     torch.random.manual_seed(seed)
     s = game.init_state()
