@@ -89,15 +89,6 @@ class Chess5d(Game):
         """
         raise NotImplementedError
 
-    def example_observation(self):
-        # This assumes the environment provides same observation shape to both agents
-        state = self.init_state()
-        return self.agent_observe(state=state)
-
-    def example_action_mask(self):
-        state = self.init_state()
-        return self.action_mask(state=state)
-
 
 if __name__ == "__main__":
     c = Chess5d()

@@ -53,7 +53,7 @@ class Game:
         """
         raise NotImplementedError
 
-    def example_observation(self):
+    def example_agent_obs(self):
         # This assumes the environment provides same observation shape to both agents
         state = self.init_state()
         return self.agent_observe(state=state)
@@ -61,6 +61,10 @@ class Game:
     def example_action_mask(self):
         state = self.init_state()
         return self.action_mask(state=state)
+
+    def example_critic_obs(self):
+        state = self.init_state()
+        return self.critic_observe(state=state)
 
     def get_canvas(self):
         """
