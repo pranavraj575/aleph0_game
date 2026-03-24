@@ -1,6 +1,15 @@
+import dataclasses
+
 import torch
 
 from .game import Game
+
+
+@dataclasses.dataclass
+class State:
+    board: torch.Tensor
+    player: int
+    piece_held: int
 
 
 class Chess5d(Game):
@@ -34,11 +43,6 @@ class Chess5d(Game):
         return 2
 
     def init_state(self):
-        """
-        Initial state of the environment.
-        Returns:
-            The initial state of the environment.
-        """
         back_rank = torch.tensor(
             [
                 self.UNMOVED_ROOK,
@@ -56,37 +60,32 @@ class Chess5d(Game):
         board[1] = self.UNMOVED_PAWN
         board[-2] = -self.UNMOVED_PAWN
         board[-1] = -back_rank
-        return board, 0
+        return State(
+            board=board,
+            player=0,
+            piece_held=-1,
+        )
 
     def player(self, state):
-        _, player = state
-        return player
+        return state.player
 
     def step(self, state, action):
+        if state.piece_held < 0:
+            # pick a square
+
+            pass
+        else:
+            pass
         raise NotImplementedError
 
     def agent_observe(self, state):
-        """
-        agent observations
-        Args:
-            state: The state of the environment.
-        """
-        raise NotImplementedError
+        # TODO: potentially flip board for black player
+        return state.board
 
     def action_mask(self, state):
-        """
-        possible actions to take
-        Args:
-            state: The state of the environment.
-        """
         raise NotImplementedError
 
     def critic_observe(self, state):
-        """
-        critic observations
-        Args:
-            state: The state of the environment.
-        """
         raise NotImplementedError
 
 

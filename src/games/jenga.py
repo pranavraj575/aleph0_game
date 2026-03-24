@@ -1,3 +1,4 @@
+import dataclasses
 import itertools
 
 import matplotlib.pyplot as plt
@@ -6,6 +7,14 @@ import torch
 from scipy.spatial import ConvexHull
 
 from .game import Game
+
+
+@dataclasses.dataclass
+class State:
+    tower: torch.Tensor
+    player: int
+    phase: int
+    stored_block: torch.Tensor
 
 
 def tail_cumsum(arr, dim):
@@ -265,27 +274,31 @@ class Jenga(Game):
         return self.num_players
 
     def init_state(self):
-        tower = self.generate_initial_tower()
-        player = 0
-        phase = 0  # 0 for pick, 1 for place
-        stored_block = torch.zeros(self.BLOCK_VEC_DIM)
-        return tower, player, phase, stored_block
+        return State(
+            tower=self.generate_initial_tower(),
+            player=0,
+            phase=0,  # 0 for pick, 1 for place
+            stored_block=torch.zeros(self.BLOCK_VEC_DIM),
+        )
 
     def player(self, state):
-        _, player, _, _ = state
-        return player
+        return state.player
 
     def step(self, state, action):
-        tower, player, phase, stored_block = state
-        new_tower = tower.clone()
+        new_tower = state.tower.clone()
         if action[0] >= len(new_tower):
             new_tower = torch.concatenate(
                 (new_tower, torch.zeros(1, self.k, self.BLOCK_VEC_DIM)), dim=0
             )
-        if phase == 0:
-            block = tower[action[0], action[1]]
+        if state.phase == 0:
+            block = state.tower[action[0], action[1]]
             new_tower[action[0], action[1]] = 0
-            new_state = new_tower, player, 1, block
+            new_state = State(
+                tower=new_tower,
+                player=state.player,
+                phase=1,
+                stored_block=block,
+            )
         else:
             mean = torch.tensor([0, 0, self.std_block_size[2] * (action[0] + 0.5)])
             # offset the mean in the appropriate direction
@@ -296,22 +309,22 @@ class Jenga(Game):
             new_tower[action[0], action[1]] = self.generate_random_blocks(
                 means=mean.unsqueeze(0),
                 yaws=yaw,
-                properties=stored_block.unsqueeze(0),
+                properties=state.stored_block.unsqueeze(0),
                 deterministic=self.deterministic,
             )
-            new_state = (
-                new_tower,
-                (player + 1) % self.num_players,
-                0,
-                torch.zeros(self.BLOCK_VEC_DIM),
+            new_state = State(
+                tower=new_tower,
+                player=(state.player + 1) % self.num_players,
+                phase=0,
+                stored_block=torch.zeros(self.BLOCK_VEC_DIM),
             )
         terminal = False
         rwd = torch.zeros(self.num_players)
         # tower is stable with self.check_stability(new_tower) probability
-        #  with 1- this probability, it is unstable
-        if torch.rand(1) > self.check_stability(new_tower):
+        #  with 1-(this probability), it is unstable
+        if torch.rand(1) > self.check_stability(new_state.tower):
             terminal = True
-            rwd[player] = -1.0
+            rwd[state.player] = -1.0
         return new_state, rwd, terminal, dict()
 
     def agent_observe(self, state):
@@ -320,9 +333,10 @@ class Jenga(Game):
         Args:
             state: The state of the environment.
         """
-        tower, _, phase, block = state
-        tower_obs = tower[:, :, :9]
-        return tower_obs, torch.concatenate((torch.tensor((phase,)), block))
+        tower_obs = state.tower[:, :, :9]
+        return tower_obs, torch.concatenate(
+            (torch.tensor((state.phase,)), state.stored_block)
+        )
 
     def action_mask(self, state):
         """
@@ -331,10 +345,9 @@ class Jenga(Game):
             state: The state of the environment.
         """
 
-        tower, _, phase, _ = state
-        if phase == 0:
+        if state.phase == 0:
             # mass > 0 means block exists there
-            action_mask = tower[:, :, 8] > 0
+            action_mask = state.tower[:, :, 8] > 0
             if not torch.all(action_mask[-1]):
                 # if top layer is not full, we cannot draw a block from top two layers
                 action_mask[-2:] = False
@@ -345,13 +358,15 @@ class Jenga(Game):
 
         else:
             # if any open squares on top level, we can place there
-            if torch.any(tower[-1, :, 8] == 0):
-                action_mask = tower[:, :, 8] == 0
+            if torch.any(torch.eq(state.tower[-1, :, 8], 0)):
+                action_mask = torch.eq(state.tower[:, :, 8], 0)
                 action_mask[:-1] = False
                 return action_mask
             else:
                 # otherwise, add a layer to tower, and we may place anywhere on that layer
-                action_mask = torch.zeros(tower.shape[0] + 1, self.k, dtype=torch.bool)
+                action_mask = torch.zeros(
+                    state.tower.shape[0] + 1, self.k, dtype=torch.bool
+                )
                 action_mask[-1] = True
                 return action_mask
 
@@ -372,7 +387,6 @@ class Jenga(Game):
         plt.close()
 
     def render(self, canvas, state):
-        tower, _, phase, stored_block = state
         canvas.clear()
         canvas.set_xticks(())
         canvas.set_yticks(())
@@ -380,9 +394,9 @@ class Jenga(Game):
 
         colors = ["purple", "red", "blue", "orange", "brown", "yellow"]
         color_counter = 0
-        top_layer_filled = torch.all(tower[-1, :, 8] != 0)
+        top_layer_filled = torch.all(state.tower[-1, :, 8] != 0)
 
-        place_height = len(tower) - 1 + top_layer_filled
+        place_height = len(state.tower) - 1 + top_layer_filled
         # if h<pick_ht_bound, this is a valid block to pick
         pick_ht_bound = place_height - 1
 
@@ -391,14 +405,14 @@ class Jenga(Game):
                 color_counter += 1
                 label = str((h, i))
 
-                if h >= len(tower):
+                if h >= len(state.tower):
                     block_exists = False
                     block = None
                 else:
-                    block = tower[h, i]
+                    block = state.tower[h, i]
                     block_exists = block[8] > 0
                 if block_exists:
-                    if phase == 1 or h >= pick_ht_bound:
+                    if state.phase == 1 or h >= pick_ht_bound:
                         # place phase, we dont care about these labels
                         # or block cannot legally be chosen, we do not need to list label
                         label = None
@@ -409,7 +423,7 @@ class Jenga(Game):
                         label=label,
                         only_frame=False,
                     )
-                elif h == place_height and phase == 1:
+                elif h == place_height and state.phase == 1:
                     # render the frames of the block placement
                     mean = torch.tensor([0, 0, self.std_block_size[2] * (h + 0.5)])
                     # offset the mean in the appropriate direction
@@ -420,7 +434,7 @@ class Jenga(Game):
                     block = self.generate_random_blocks(
                         means=mean.unsqueeze(0),
                         yaws=yaw,
-                        properties=stored_block.unsqueeze(0),
+                        properties=state.stored_block.unsqueeze(0),
                         deterministic=True,
                     )
                     self.render_block(

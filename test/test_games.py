@@ -23,6 +23,8 @@ def test_game_playthrough(seed, game):
     terminal = False
     while not terminal:
         actions = torch.stack(torch.where(game.action_mask(s)), dim=-1)
+        game.agent_observe(s)
+        game.critic_observe(s)
         idx = torch.randint(0, len(actions), (1,))
         action = actions[idx].flatten()
         s, _, terminal, _ = game.step(s, action)
