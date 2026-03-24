@@ -1,10 +1,10 @@
 import pytest
 import torch
 
-from src.games.jenga import Jenga
-from src.games.mnk import MNK
+from src.games import MNK, Jenga, TicTacToe
 
 games = [
+    TicTacToe(),
     MNK(3, 3, 3),
     MNK(5, 5, 3),
     MNK(5, 5, 5),

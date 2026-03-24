@@ -42,7 +42,9 @@ extend-select = [
     "I",
 ]
 
+exclude = ["src/games/chess/*"]
 [tool.pyright]
+exclude = ["src/games/chess/"]
 useLibraryCodeForTypes = false
 reportPrivateImportUsage = false
 reportIncompatibleMethodOverride = false

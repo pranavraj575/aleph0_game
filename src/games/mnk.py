@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 
 from .game import Game
@@ -75,15 +76,17 @@ class MNK(Game):
     def board_string(self, state):
         board, _ = state
         return (
-            "---\n"
-            + str(board.numpy())
+            "-" * self.n
+            + "\n"
+            + str(board.numpy().astype(np.int32))
             .replace(" ", "")
             .replace("[", "")
             .replace("]", "")
             .replace("-1", "O")
             .replace("0", ".")
-            .replace("1", "O")
-            + "\n---"
+            .replace("1", "X")
+            + "\n"
+            + "-" * self.n
         )
 
     def render(self, canvas, state):
