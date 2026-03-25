@@ -141,23 +141,12 @@ class Jenga(Game):
         return new_state, rwd, terminal, dict()
 
     def agent_observe(self, state):
-        """
-        agent observations
-        Args:
-            state: The state of the environment.
-        """
         tower_obs = state.tower[:, :, :9]
         return tower_obs, torch.concatenate(
             (torch.tensor((state.phase,)), state.stored_block)
         )
 
     def action_mask(self, state):
-        """
-        possible actions to take
-        Args:
-            state: The state of the environment.
-        """
-
         if state.phase == 0:
             # mass > 0 means block exists there
             action_mask = state.tower[:, :, 8] > 0
@@ -184,11 +173,6 @@ class Jenga(Game):
                 return action_mask
 
     def critic_observe(self, state):
-        """
-        critic observations
-        Args:
-            state: The state of the environment.
-        """
         return self.agent_observe(state)
 
     def get_canvas(self):

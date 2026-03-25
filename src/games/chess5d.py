@@ -70,9 +70,12 @@ class Chess5d(Game):
         return state.player
 
     def step(self, state, action):
+        new_board = state.board.clone()
         if state.piece_held < 0:
             # pick a square
-
+            piece = state.board[*action]
+            new_board[*action] = self.EMPTY
+            print(piece)
             pass
         else:
             pass

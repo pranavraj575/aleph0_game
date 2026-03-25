@@ -1,4 +1,6 @@
 class Game:
+    HAS_SPECIAL_ACTIONS = False
+
     def num_agents(self):
         raise NotImplementedError
 
@@ -67,7 +69,16 @@ class Game:
         return self.critic_observe(state=state)
 
     def is_valid(self, state, action):
-        return self.action_mask(state)[*action]
+        if self.HAS_SPECIAL_ACTIONS:
+            special_action, board_action = action
+            special_mask, board_mask = self.action_mask(state)
+            if special_action >= 0:
+                return special_mask[special_action]
+            else:
+                return board_mask[*board_action]
+
+        else:
+            return self.action_mask(state)[*action]
 
     def get_canvas(self):
         """

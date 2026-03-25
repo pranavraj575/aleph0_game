@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from src.games import MNK, Jenga, TicTacToe
+from src.games import F_MNK, MNK, Jenga, TicTacToe
 
 games = [
     TicTacToe(),
@@ -12,7 +12,28 @@ games = [
     Jenga(players=3),
     Jenga(initial_height=5),
     Jenga(deterministic=True),
+    F_MNK(3, 3, 3),
 ]
+
+
+def sample_from_action_mask(game, action_mask):
+    if game.HAS_SPECIAL_ACTIONS:
+        special_mask, board_mask = action_mask
+        combined_mask = torch.concat((special_mask, board_mask.flatten()))
+        action = torch.multinomial(combined_mask, 1, True)
+        if action < len(special_mask):
+            return (action, -torch.ones(len(board_mask.shape), dtype=torch.int))
+        else:
+            return (
+                -1,
+                torch.cat(
+                    torch.unravel_index(action - len(special_mask), board_mask.shape)
+                ),
+            )
+    else:
+        # action mask is a tensor
+        action = torch.multinomial(action_mask.flatten().to(torch.float), 1, True)
+        return torch.cat(torch.unravel_index(action, action_mask.shape))
 
 
 @pytest.mark.parametrize("seed", list(range(13)))
@@ -22,11 +43,10 @@ def test_game_playthrough(seed, game):
     s = game.init_state()
     terminal = False
     while not terminal:
-        actions = torch.stack(torch.where(game.action_mask(s)), dim=-1)
+        mask = game.action_mask(s)
+        action = sample_from_action_mask(game, mask)
         game.agent_observe(s)
         game.critic_observe(s)
-        idx = torch.randint(0, len(actions), (1,))
-        action = actions[idx].flatten()
         assert game.is_valid(s, action)
         s, _, terminal, _ = game.step(s, action)
 
@@ -39,9 +59,8 @@ def test_game_render(seed, game):
     terminal = False
     canvas = game.get_canvas()
     while not terminal:
-        actions = torch.stack(torch.where(game.action_mask(s)), dim=-1)
-        idx = torch.randint(0, len(actions), (1,))
-        action = actions[idx].flatten()
+        mask = game.action_mask(s)
+        action = sample_from_action_mask(game, mask)
         game.render(canvas, s)
         s, _, terminal, _ = game.step(s, action)
     game.close_canvas(canvas)
@@ -65,9 +84,8 @@ def test_seeded_randomness(seed, game):
     while not terminal:
         # change seed like this
         seed = seed + 1
-        actions = torch.stack(torch.where(game.action_mask(s)), dim=-1)
-        idx = torch.randint(0, len(actions), (1,))
-        action = actions[idx].flatten()
+        mask = game.action_mask(s)
+        action = sample_from_action_mask(game, mask)
         assert equality(game.agent_observe(s), game.agent_observe(s2))
         assert equality(game.critic_observe(s), game.critic_observe(s2))
         torch.random.manual_seed(seed)
