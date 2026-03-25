@@ -9,6 +9,7 @@ name = "aleph0_game"
 authors = [
     { name = "Pranav", email = "prajbhan@cs.cmu.edu" },
 ]
+requires-python=">=3.11"
 dynamic = ["version"]
 description = "implementation of aleph0 games, which have a variable size discrete action set at each move"
 readme = "README.md"

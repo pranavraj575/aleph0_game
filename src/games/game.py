@@ -66,6 +66,9 @@ class Game:
         state = self.init_state()
         return self.critic_observe(state=state)
 
+    def is_valid(self, state, action):
+        return self.action_mask(state)[*action]
+
     def get_canvas(self):
         """
         :return: canvas object to render game on (if relevant)

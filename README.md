@@ -3,6 +3,8 @@ Implementation of a few &aleph;<sub>0</sub> games, including '5D Chess with Mult
 
 ## Setup
 
+Requires Python &ge; 3.11
+
 Clone repository, install
 
 ```shell

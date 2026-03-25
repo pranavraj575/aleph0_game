@@ -83,6 +83,229 @@ class Jenga(Game):
         #  -log(3)=-cd
         #  c=log(3)/d
 
+    def num_agents(self):
+        return self.num_players
+
+    def init_state(self):
+        return State(
+            tower=self.generate_initial_tower(),
+            player=0,
+            phase=0,  # 0 for pick, 1 for place
+            stored_block=torch.zeros(self.BLOCK_VEC_DIM),
+        )
+
+    def player(self, state):
+        return state.player
+
+    def step(self, state, action):
+        new_tower = state.tower.clone()
+        if action[0] >= len(new_tower):
+            new_tower = torch.concatenate(
+                (new_tower, torch.zeros(1, self.k, self.BLOCK_VEC_DIM)), dim=0
+            )
+        if state.phase == 0:
+            block = state.tower[*action]
+            new_tower[*action] = 0
+            new_state = State(
+                tower=new_tower,
+                player=state.player,
+                phase=1,
+                stored_block=block,
+            )
+        else:
+            mean = torch.tensor([0, 0, self.std_block_size[2] * (action[0] + 0.5)])
+            # offset the mean in the appropriate direction
+            mean[action[0] % 2 + 1] += (action[1] - (self.k - 1) / 2) * (
+                self.std_block_size[1] + self.std_block_spacing
+            )
+            yaw = torch.tensor(((action[0] % 2) * torch.pi / 2,))
+            new_tower[*action] = self.generate_random_blocks(
+                means=mean.unsqueeze(0),
+                yaws=yaw,
+                properties=state.stored_block.unsqueeze(0),
+                deterministic=self.deterministic,
+            )
+            new_state = State(
+                tower=new_tower,
+                player=(state.player + 1) % self.num_players,
+                phase=0,
+                stored_block=torch.zeros(self.BLOCK_VEC_DIM),
+            )
+        terminal = False
+        rwd = torch.zeros(self.num_players)
+        # tower is stable with self.check_stability(new_tower) probability
+        #  with 1-(this probability), it is unstable
+        if torch.rand(1) > self.check_stability(new_state.tower):
+            terminal = True
+            rwd[state.player] = -1.0
+        return new_state, rwd, terminal, dict()
+
+    def agent_observe(self, state):
+        """
+        agent observations
+        Args:
+            state: The state of the environment.
+        """
+        tower_obs = state.tower[:, :, :9]
+        return tower_obs, torch.concatenate(
+            (torch.tensor((state.phase,)), state.stored_block)
+        )
+
+    def action_mask(self, state):
+        """
+        possible actions to take
+        Args:
+            state: The state of the environment.
+        """
+
+        if state.phase == 0:
+            # mass > 0 means block exists there
+            action_mask = state.tower[:, :, 8] > 0
+            if not torch.all(action_mask[-1]):
+                # if top layer is not full, we cannot draw a block from top two layers
+                action_mask[-2:] = False
+            else:
+                # blocks can never be drawn from top row
+                action_mask[-1:] = False
+            return action_mask
+
+        else:
+            # if any open squares on top level, we can place there
+            if torch.any(torch.eq(state.tower[-1, :, 8], 0)):
+                action_mask = torch.eq(state.tower[:, :, 8], 0)
+                action_mask[:-1] = False
+                return action_mask
+            else:
+                # otherwise, add a layer to tower, and we may place anywhere on that layer
+                action_mask = torch.zeros(
+                    state.tower.shape[0] + 1, self.k, dtype=torch.bool
+                )
+                action_mask[-1] = True
+                return action_mask
+
+    def critic_observe(self, state):
+        """
+        critic observations
+        Args:
+            state: The state of the environment.
+        """
+        return self.agent_observe(state)
+
+    def get_canvas(self):
+        plt.ion()
+        plt.show()
+        return plt.figure().add_subplot(projection="3d")
+
+    def close_canvas(self, canvas):
+        plt.close()
+
+    def render(self, canvas, state):
+        canvas.clear()
+        canvas.set_xticks(())
+        canvas.set_yticks(())
+        canvas.set_zticks(())
+
+        colors = ["purple", "red", "blue", "orange", "brown", "yellow"]
+        color_counter = 0
+        top_layer_filled = torch.all(state.tower[-1, :, 8] != 0)
+
+        place_height = len(state.tower) - 1 + top_layer_filled
+        # if h<pick_ht_bound, this is a valid block to pick
+        pick_ht_bound = place_height - 1
+
+        for h in range(place_height + 1):
+            for i in range(self.k):
+                color_counter += 1
+                label = str((h, i))
+
+                if h >= len(state.tower):
+                    block_exists = False
+                    block = None
+                else:
+                    block = state.tower[h, i]
+                    block_exists = block[8] > 0
+                if block_exists:
+                    if state.phase == 1 or h >= pick_ht_bound:
+                        # place phase, we dont care about these labels
+                        # or block cannot legally be chosen, we do not need to list label
+                        label = None
+                    self.render_block(
+                        block=block,
+                        ax=canvas,
+                        color=colors[color_counter % len(colors)],
+                        label=label,
+                        only_frame=False,
+                    )
+                elif h == place_height and state.phase == 1:
+                    # render the frames of the block placement
+                    mean = torch.tensor([0, 0, self.std_block_size[2] * (h + 0.5)])
+                    # offset the mean in the appropriate direction
+                    mean[h % 2 + 1] += (i - (self.k - 1) / 2) * (
+                        self.std_block_size[1] + self.std_block_spacing
+                    )
+                    yaw = torch.tensor(((h % 2) * torch.pi / 2,))
+                    block = self.generate_random_blocks(
+                        means=mean.unsqueeze(0),
+                        yaws=yaw,
+                        properties=state.stored_block.unsqueeze(0),
+                        deterministic=True,
+                    )
+                    self.render_block(
+                        block=block.flatten(),
+                        ax=canvas,
+                        label=label,
+                        color="black",
+                        linestyle="--",
+                        only_frame=True,
+                    )
+        canvas.set_aspect("equal")
+
+    def render_block(self, block, ax, only_frame, label=None, **plot_kwargs):
+        vertices = block[9:17].reshape(-1, 2)
+        # 2d projections of block vertices, arranged in a cycle
+
+        # mean z +- 1/2block width
+        heights = (torch.arange(2) - 1 / 2) * block[5] + block[2]
+
+        #  vertices.tile(2,1,1) is a 2,4,2 element that is two copies of vertices
+        # heights.reshape(2,1,1).tile(1,4,1) is a (2,4,1) array whose 0th element is 4 copies of heights[0]
+        vertices = torch.concatenate(
+            (vertices.tile((2, 1, 1)), heights.reshape(2, 1, 1).tile(1, 4, 1)), dim=2
+        )
+        # vertices is now a 2,4,3 array where vertices[0] and vertices[1] are each a cycle of vertices at the lower and upper face of the block
+        vertices = vertices.reshape(2, 2, 2, 3)
+
+        # rearrange vertices, so now vertices[0] and vertices[1] each have the same x directions
+        #  vertices{:,0] and vertices[:,1] have same y, etc.
+        vertices[:, (1,)] = vertices[:, (1,)].flip(2)
+        vertices = vertices.permute((1, 2, 0, 3))
+        if only_frame:
+            for i, j in itertools.product(range(2), repeat=2):
+                for line in (
+                    vertices[i, j, :, :],
+                    vertices[:, i, j, :],
+                    vertices[i, :, j, :],
+                ):
+                    x, y, z = line.T
+                    ax.plot(x, y, z, **plot_kwargs)
+        else:
+            for dir in range(2):
+                for square in (
+                    vertices[dir, :, :, :],  # z square
+                    vertices[:, dir, :, :],  # y square
+                    vertices[:, :, dir, :],  # x square
+                ):
+                    x, y, z = square[:, :, 0], square[:, :, 1], square[:, :, 2]
+                    ax.plot_surface(x, y, z, **plot_kwargs)
+
+        if label is not None:
+            center = torch.mean(vertices.reshape((-1, 3)), dim=0)
+            edge = torch.mean(vertices[:, 0, :, :].reshape((-1, 3)), dim=0)
+            vec = edge - center
+            label_pos = center + vec * 1.1
+            x, y, z = label_pos
+            ax.text(x, y, z, label, backgroundcolor="white")
+
     def generate_initial_tower(self):
         layer_num = torch.arange(self.initial_height).repeat((self.k, 1)).T.flatten()
         # [0,0,0,1,1,1,...]
@@ -269,226 +492,3 @@ class Jenga(Game):
             ),
             dim=-1,
         )
-
-    def num_agents(self):
-        return self.num_players
-
-    def init_state(self):
-        return State(
-            tower=self.generate_initial_tower(),
-            player=0,
-            phase=0,  # 0 for pick, 1 for place
-            stored_block=torch.zeros(self.BLOCK_VEC_DIM),
-        )
-
-    def player(self, state):
-        return state.player
-
-    def step(self, state, action):
-        new_tower = state.tower.clone()
-        if action[0] >= len(new_tower):
-            new_tower = torch.concatenate(
-                (new_tower, torch.zeros(1, self.k, self.BLOCK_VEC_DIM)), dim=0
-            )
-        if state.phase == 0:
-            block = state.tower[action[0], action[1]]
-            new_tower[action[0], action[1]] = 0
-            new_state = State(
-                tower=new_tower,
-                player=state.player,
-                phase=1,
-                stored_block=block,
-            )
-        else:
-            mean = torch.tensor([0, 0, self.std_block_size[2] * (action[0] + 0.5)])
-            # offset the mean in the appropriate direction
-            mean[action[0] % 2 + 1] += (action[1] - (self.k - 1) / 2) * (
-                self.std_block_size[1] + self.std_block_spacing
-            )
-            yaw = torch.tensor(((action[0] % 2) * torch.pi / 2,))
-            new_tower[action[0], action[1]] = self.generate_random_blocks(
-                means=mean.unsqueeze(0),
-                yaws=yaw,
-                properties=state.stored_block.unsqueeze(0),
-                deterministic=self.deterministic,
-            )
-            new_state = State(
-                tower=new_tower,
-                player=(state.player + 1) % self.num_players,
-                phase=0,
-                stored_block=torch.zeros(self.BLOCK_VEC_DIM),
-            )
-        terminal = False
-        rwd = torch.zeros(self.num_players)
-        # tower is stable with self.check_stability(new_tower) probability
-        #  with 1-(this probability), it is unstable
-        if torch.rand(1) > self.check_stability(new_state.tower):
-            terminal = True
-            rwd[state.player] = -1.0
-        return new_state, rwd, terminal, dict()
-
-    def agent_observe(self, state):
-        """
-        agent observations
-        Args:
-            state: The state of the environment.
-        """
-        tower_obs = state.tower[:, :, :9]
-        return tower_obs, torch.concatenate(
-            (torch.tensor((state.phase,)), state.stored_block)
-        )
-
-    def action_mask(self, state):
-        """
-        possible actions to take
-        Args:
-            state: The state of the environment.
-        """
-
-        if state.phase == 0:
-            # mass > 0 means block exists there
-            action_mask = state.tower[:, :, 8] > 0
-            if not torch.all(action_mask[-1]):
-                # if top layer is not full, we cannot draw a block from top two layers
-                action_mask[-2:] = False
-            else:
-                # blocks can never be drawn from top row
-                action_mask[-1:] = False
-            return action_mask
-
-        else:
-            # if any open squares on top level, we can place there
-            if torch.any(torch.eq(state.tower[-1, :, 8], 0)):
-                action_mask = torch.eq(state.tower[:, :, 8], 0)
-                action_mask[:-1] = False
-                return action_mask
-            else:
-                # otherwise, add a layer to tower, and we may place anywhere on that layer
-                action_mask = torch.zeros(
-                    state.tower.shape[0] + 1, self.k, dtype=torch.bool
-                )
-                action_mask[-1] = True
-                return action_mask
-
-    def critic_observe(self, state):
-        """
-        critic observations
-        Args:
-            state: The state of the environment.
-        """
-        return self.agent_observe(state)
-
-    def get_canvas(self):
-        plt.ion()
-        plt.show()
-        return plt.figure().add_subplot(projection="3d")
-
-    def close_canvas(self, canvas):
-        plt.close()
-
-    def render(self, canvas, state):
-        canvas.clear()
-        canvas.set_xticks(())
-        canvas.set_yticks(())
-        canvas.set_zticks(())
-
-        colors = ["purple", "red", "blue", "orange", "brown", "yellow"]
-        color_counter = 0
-        top_layer_filled = torch.all(state.tower[-1, :, 8] != 0)
-
-        place_height = len(state.tower) - 1 + top_layer_filled
-        # if h<pick_ht_bound, this is a valid block to pick
-        pick_ht_bound = place_height - 1
-
-        for h in range(place_height + 1):
-            for i in range(self.k):
-                color_counter += 1
-                label = str((h, i))
-
-                if h >= len(state.tower):
-                    block_exists = False
-                    block = None
-                else:
-                    block = state.tower[h, i]
-                    block_exists = block[8] > 0
-                if block_exists:
-                    if state.phase == 1 or h >= pick_ht_bound:
-                        # place phase, we dont care about these labels
-                        # or block cannot legally be chosen, we do not need to list label
-                        label = None
-                    self.render_block(
-                        block=block,
-                        ax=canvas,
-                        color=colors[color_counter % len(colors)],
-                        label=label,
-                        only_frame=False,
-                    )
-                elif h == place_height and state.phase == 1:
-                    # render the frames of the block placement
-                    mean = torch.tensor([0, 0, self.std_block_size[2] * (h + 0.5)])
-                    # offset the mean in the appropriate direction
-                    mean[h % 2 + 1] += (i - (self.k - 1) / 2) * (
-                        self.std_block_size[1] + self.std_block_spacing
-                    )
-                    yaw = torch.tensor(((h % 2) * torch.pi / 2,))
-                    block = self.generate_random_blocks(
-                        means=mean.unsqueeze(0),
-                        yaws=yaw,
-                        properties=state.stored_block.unsqueeze(0),
-                        deterministic=True,
-                    )
-                    self.render_block(
-                        block=block.flatten(),
-                        ax=canvas,
-                        label=label,
-                        color="black",
-                        linestyle="--",
-                        only_frame=True,
-                    )
-        canvas.set_aspect("equal")
-
-    def render_block(self, block, ax, only_frame, label=None, **plot_kwargs):
-        vertices = block[9:17].reshape(-1, 2)
-        # 2d projections of block vertices, arranged in a cycle
-
-        # mean z +- 1/2block width
-        heights = (torch.arange(2) - 1 / 2) * block[5] + block[2]
-
-        #  vertices.tile(2,1,1) is a 2,4,2 element that is two copies of vertices
-        # heights.reshape(2,1,1).tile(1,4,1) is a (2,4,1) array whose 0th element is 4 copies of heights[0]
-        vertices = torch.concatenate(
-            (vertices.tile((2, 1, 1)), heights.reshape(2, 1, 1).tile(1, 4, 1)), dim=2
-        )
-        # vertices is now a 2,4,3 array where vertices[0] and vertices[1] are each a cycle of vertices at the lower and upper face of the block
-        vertices = vertices.reshape(2, 2, 2, 3)
-
-        # rearrange vertices, so now vertices[0] and vertices[1] each have the same x directions
-        #  vertices{:,0] and vertices[:,1] have same y, etc.
-        vertices[:, (1,)] = vertices[:, (1,)].flip(2)
-        vertices = vertices.permute((1, 2, 0, 3))
-        if only_frame:
-            for i, j in itertools.product(range(2), repeat=2):
-                for line in (
-                    vertices[i, j, :, :],
-                    vertices[:, i, j, :],
-                    vertices[i, :, j, :],
-                ):
-                    x, y, z = line.T
-                    ax.plot(x, y, z, **plot_kwargs)
-        else:
-            for dir in range(2):
-                for square in (
-                    vertices[dir, :, :, :],  # z square
-                    vertices[:, dir, :, :],  # y square
-                    vertices[:, :, dir, :],  # x square
-                ):
-                    x, y, z = square[:, :, 0], square[:, :, 1], square[:, :, 2]
-                    ax.plot_surface(x, y, z, **plot_kwargs)
-
-        if label is not None:
-            center = torch.mean(vertices.reshape((-1, 3)), dim=0)
-            edge = torch.mean(vertices[:, 0, :, :].reshape((-1, 3)), dim=0)
-            vec = edge - center
-            label_pos = center + vec * 1.1
-            x, y, z = label_pos
-            ax.text(x, y, z, label, backgroundcolor="white")

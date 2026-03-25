@@ -27,6 +27,7 @@ def test_game_playthrough(seed, game):
         game.critic_observe(s)
         idx = torch.randint(0, len(actions), (1,))
         action = actions[idx].flatten()
+        assert game.is_valid(s, action)
         s, _, terminal, _ = game.step(s, action)
 
 

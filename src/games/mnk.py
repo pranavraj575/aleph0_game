@@ -20,7 +20,7 @@ class MNK(Game):
     def step(self, state, action):
         board, player = state
         new_board = board.clone()
-        new_board[action[0], action[1]] = player
+        new_board[*action] = player
         game_won = self.check_winner(torch.eq(new_board, player))
         game_won = float(game_won)
         # if no one wan, rewards are [0,0]
