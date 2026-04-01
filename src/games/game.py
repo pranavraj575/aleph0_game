@@ -1,5 +1,9 @@
+import torch
+
+
 class Game:
-    HAS_SPECIAL_ACTIONS = False
+    def has_special_actions(self):
+        return False
 
     def num_agents(self):
         raise NotImplementedError
@@ -14,6 +18,16 @@ class Game:
 
     def player(self, state):
         raise NotImplementedError
+
+    def step_weak_type(self, state, action):
+        """
+        casts action to tensor then returns step
+        """
+        if self.has_special_actions():
+            special_a, board_a = action
+            return self.step(state, (torch.tensor(special_a), torch.tensor(board_a)))
+        else:
+            return self.step(state, torch.tensor(action))
 
     def step(self, state, action):
         """
@@ -69,7 +83,7 @@ class Game:
         return self.critic_observe(state=state)
 
     def is_valid(self, state, action):
-        if self.HAS_SPECIAL_ACTIONS:
+        if self.has_special_actions():
             special_action, board_action = action
             special_mask, board_mask = self.action_mask(state)
             if special_action >= 0:
