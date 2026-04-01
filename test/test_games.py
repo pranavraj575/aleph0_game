@@ -23,7 +23,7 @@ def sample_from_action_mask(game, action_mask):
         assert board_mask.dtype == torch.bool
 
         combined_mask = torch.concat((special_mask, board_mask.flatten()))
-        action = torch.multinomial(combined_mask * 1.0, 1, True)
+        action = torch.multinomial(combined_mask.to(torch.float), 1, True)
         if action < len(special_mask):
             return (action, -torch.ones(len(board_mask.shape), dtype=torch.int))
         else:
