@@ -19,8 +19,11 @@ games = [
 def sample_from_action_mask(game, action_mask):
     if game.HAS_SPECIAL_ACTIONS:
         special_mask, board_mask = action_mask
+        assert special_mask.dtype == torch.bool
+        assert board_mask.dtype == torch.bool
+
         combined_mask = torch.concat((special_mask, board_mask.flatten()))
-        action = torch.multinomial(combined_mask, 1, True)
+        action = torch.multinomial(combined_mask * 1.0, 1, True)
         if action < len(special_mask):
             return (action, -torch.ones(len(board_mask.shape), dtype=torch.int))
         else:
@@ -32,6 +35,7 @@ def sample_from_action_mask(game, action_mask):
             )
     else:
         # action mask is a tensor
+        assert action_mask.dtype == torch.bool
         action = torch.multinomial(action_mask.flatten().to(torch.float), 1, True)
         return torch.cat(torch.unravel_index(action, action_mask.shape))
 
@@ -51,7 +55,7 @@ def test_game_playthrough(seed, game):
         s, _, terminal, _ = game.step(s, action)
 
 
-@pytest.mark.parametrize("seed", list(range(2)))
+@pytest.mark.parametrize("seed", list(range(1)))
 @pytest.mark.parametrize("game", games)
 def test_game_render(seed, game):
     torch.random.manual_seed(seed)

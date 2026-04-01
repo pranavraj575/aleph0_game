@@ -53,7 +53,9 @@ class MNK(Game):
         obs_board = board * player
         # observation shaped (3,m,n). observation[0] is the empty squares, observation[1] is the player's squares,
         #  observation[2] is the opponent's squares
-        return obs_board.unsqueeze(0) == torch.tensor([0, 1, -1]).reshape(-1, 1, 1)
+        return torch.eq(
+            obs_board.unsqueeze(0), torch.tensor([0, 1, -1]).reshape(-1, 1, 1)
+        )
 
     def action_mask(self, state):
         """
@@ -62,7 +64,7 @@ class MNK(Game):
             state: The state of the environment.
         """
         board, _ = state
-        return board == 0
+        return torch.eq(board, 0)
 
     def critic_observe(self, state):
         """
@@ -71,7 +73,7 @@ class MNK(Game):
             state: The state of the environment.
         """
         board, _ = state
-        return board.unsqueeze(0) == torch.tensor([0, 1, -1]).reshape(-1, 1, 1)
+        return torch.eq(board.unsqueeze(0), torch.tensor([0, 1, -1]).reshape(-1, 1, 1))
 
     def board_string(self, state):
         board, _ = state

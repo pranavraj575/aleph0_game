@@ -272,6 +272,7 @@ class Chess5d(Game):
 
     def agent_observe(self, state):
         # TODO: potentially flip board for opponent
+        #  also maybe denote what piece was removed better (instead of just giving index)
         return state.board, torch.concatenate(
             (torch.tensor([state.piece_held]), state.held_piece_origin)
         )
@@ -281,7 +282,13 @@ class Chess5d(Game):
             torch.eq(torch.sign(state.board), state.player),
             torch.le(state.board, self.LARGEST_PIECE),
         )
-        return player_pieces
+        p0 = (state.player + 1) // 2
+        players_time = (torch.arange(len(state.board)) + p0) % 2
+        action_mask = torch.logical_and(
+            player_pieces, players_time.reshape(-1, 1, 1, 1)
+        )
+        special_moves = torch.ones(1, dtype=torch.bool)
+        return special_moves, action_mask
 
     def critic_observe(self, state):
         return state.board, torch.tensor([state.piece_held])
@@ -305,6 +312,5 @@ if __name__ == "__main__":
     b = c.step(b, (-1, [4, 0, 4, 0]))[0]
     b = c.step(b, (-1, [4, 0, 5, 1]))[0]
     b = c.step(b, (0, -torch.ones(4)))[0]
-    b = c.step(b, (-1, [5, 0, 6, 2]))[0]
-    b = c.step(b, (-1, [5, 0, 5, 1]))[0]
-    print(b.board)
+    print(b)
+    print(c.action_mask(b))

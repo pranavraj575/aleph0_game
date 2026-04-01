@@ -37,6 +37,6 @@ class F_MNK(MNK):
         return new_state, rewards, terminal, dict()
 
     def action_mask(self, state):
-        board, _ = state
+        board_action_mask = super().action_mask(state)
         # allow an extra action, which will lose the game on the spot
-        return (torch.ones(1), board == 0)
+        return (torch.ones(1, dtype=torch.bool), board_action_mask)
