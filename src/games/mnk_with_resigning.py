@@ -14,7 +14,8 @@ from .mnk import MNK
 
 
 class F_MNK(MNK):
-    HAS_SPECIAL_ACTIONS = True
+    def has_special_actions(self):
+        return True
 
     def step(self, state, action):
         board, player = state
