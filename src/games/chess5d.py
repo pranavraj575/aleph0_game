@@ -9,8 +9,9 @@ from .game import Game
 class State:
     board: torch.Tensor
     player: int
-    piece_held: int
     center_timeline: int
+    piece_held: int = -1
+    held_piece_origin: torch.Tensor = -torch.ones(4, dtype=torch.int)
 
 
 class Chess5d(Game):
@@ -65,7 +66,6 @@ class Chess5d(Game):
         return State(
             board=board,
             player=0,
-            piece_held=-1,
             center_timeline=0,
         )
 
@@ -74,12 +74,29 @@ class Chess5d(Game):
 
     def step(self, state, action):
         special_action, board_action = action
+        if special_action == 0:
+            # player resigns (if player 1 resigns, rewards are [-1,1], if player -1 does, rwds are [1,-1])
+            state = State(
+                board=state.board,
+                player=1 - state.player,
+                center_timeline=state.center_timeline,
+            )
+            # TODO: check if opponent has no moves here to determine terminality
+            return state, torch.zeros(2), False, dict()
         new_board = state.board.clone()
+
         if state.piece_held < 0:
             # assert special_action<0 # cannot end turn while piece is held
             # pick a square
             piece = state.board[*board_action]
             new_board[*board_action] = self.REMOVED
+            return State(
+                new_board,
+                player=state.player,
+                piece_held=piece,
+                held_piece_origin=board_action,
+                center_timeline=state.center_timeline,
+            )
             print(piece)
         else:
             new_board = torch.where(
