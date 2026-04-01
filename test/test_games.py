@@ -1,9 +1,9 @@
 import pytest
 import torch
 
-from src.games import F_MNK, MNK, Jenga, TicTacToe
+from src.games import F_MNK, MNK, Chess2d, Chess5d, Game, Jenga, TicTacToe
 
-games = [
+small_games = [
     TicTacToe(),
     MNK(3, 3, 3),
     MNK(5, 5, 3),
@@ -14,10 +14,14 @@ games = [
     Jenga(deterministic=True),
     F_MNK(3, 3, 3),
 ]
+all_games = small_games + [
+    Chess5d(),
+    Chess2d(),
+]
 
 
-def sample_from_action_mask(game, action_mask):
-    if game.HAS_SPECIAL_ACTIONS:
+def sample_from_action_mask(game: Game, action_mask):
+    if game.has_special_actions():
         special_mask, board_mask = action_mask
         assert special_mask.dtype == torch.bool
         assert board_mask.dtype == torch.bool
@@ -41,32 +45,34 @@ def sample_from_action_mask(game, action_mask):
 
 
 @pytest.mark.parametrize("seed", list(range(13)))
-@pytest.mark.parametrize("game", games)
-def test_game_playthrough(seed, game):
+@pytest.mark.parametrize("game", small_games)
+def test_game_playthrough(seed, game, depth=200):
     torch.random.manual_seed(seed)
     s = game.init_state()
     terminal = False
-    while not terminal:
+    while depth >= 0 and not terminal:
         mask = game.action_mask(s)
         action = sample_from_action_mask(game, mask)
         game.agent_observe(s)
         game.critic_observe(s)
         assert game.is_valid(s, action)
         s, _, terminal, _ = game.step(s, action)
+        depth -= 1
 
 
 @pytest.mark.parametrize("seed", list(range(1)))
-@pytest.mark.parametrize("game", games)
-def test_game_render(seed, game):
+@pytest.mark.parametrize("game", all_games)
+def test_game_render(seed, game, depth=200):
     torch.random.manual_seed(seed)
     s = game.init_state()
     terminal = False
     canvas = game.get_canvas()
-    while not terminal:
+    while depth >= 0 and not terminal:
         mask = game.action_mask(s)
         action = sample_from_action_mask(game, mask)
         game.render(canvas, s)
         s, _, terminal, _ = game.step(s, action)
+        depth -= 1
     game.close_canvas(canvas)
 
 
@@ -78,14 +84,14 @@ def equality(a, b):
 
 
 @pytest.mark.parametrize("seed", list(range(52)))
-@pytest.mark.parametrize("game", games)
-def test_seeded_randomness(seed, game):
+@pytest.mark.parametrize("game", small_games)
+def test_seeded_randomness(seed, game, depth=200):
     torch.random.manual_seed(seed)
     s = game.init_state()
     torch.random.manual_seed(seed)
     s2 = game.init_state()
     terminal = False
-    while not terminal:
+    while depth >= 0 and not terminal:
         # change seed like this
         seed = seed + 1
         mask = game.action_mask(s)
@@ -96,3 +102,4 @@ def test_seeded_randomness(seed, game):
         s, _, terminal, _ = game.step(s, action)
         torch.random.manual_seed(seed)
         s2, _, terminal, _ = game.step(s2, action)
+        depth -= 1
