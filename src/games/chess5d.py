@@ -10,7 +10,7 @@ class State:
     board: torch.Tensor
     player: int
     center_timeline: int
-    piece_held: int = -1
+    piece_held: int = 0
     held_piece_origin: torch.Tensor = -torch.ones(4, dtype=torch.int)
 
 
@@ -18,8 +18,8 @@ class Chess5d(Game):
     BOARD_SIZE = 8
     # reserve a separate index for a blocked board (i.e. board that does not exist yet)
     # this is necessary since knights can jump over blocked boards, but other pieces cannot
-    BLOCKED = 19
-    REMOVED = 18
+    BLOCKED = 18
+    LARGEST_PIECE = BLOCKED - 1
 
     EMPTY = 0
 
@@ -42,7 +42,7 @@ class Chess5d(Game):
 
     ROOK = 3
     UNMOVED_ROOK = 16
-    assert UNMOVED_ROOK + UNMOVED_SHIFT == UNMOVED_ROOK
+    assert ROOK + UNMOVED_SHIFT == UNMOVED_ROOK
     assert LOWEST_UNMOVED <= UNMOVED_ROOK and UNMOVED_ROOK <= HIGHEST_UNMOVED
 
     KNIGHT = 4
@@ -69,14 +69,15 @@ class Chess5d(Game):
                 self.UNMOVED_ROOK,
             ]
         )
-        board = torch.zeros(8, 8)
+        board = torch.zeros(8, 8, dtype=torch.int)
         board[0] = back_rank
         board[1] = self.UNMOVED_PAWN
         board[-2] = -self.UNMOVED_PAWN
         board[-1] = -back_rank
+        board = board.reshape(1, 1, *board.shape)
         return State(
             board=board,
-            player=0,
+            player=1,
             center_timeline=0,
         )
 
@@ -89,36 +90,38 @@ class Chess5d(Game):
             # player resigns (if player 1 resigns, rewards are [-1,1], if player -1 does, rwds are [1,-1])
             state = State(
                 board=state.board,
-                player=1 - state.player,
+                player=-state.player,
                 center_timeline=state.center_timeline,
             )
             # TODO: check if opponent has no moves here to determine terminality
             return state, torch.zeros(2), False, dict()
         new_board = state.board.clone()
 
-        if state.piece_held < 0:
+        if state.piece_held == 0:
             # assert special_action<0 # cannot end turn while piece is held
             # pick a square
             piece = state.board[*board_action]
-            new_board[*board_action] = self.REMOVED
-            return State(
-                board=new_board,
-                player=state.player,
-                piece_held=piece,
-                held_piece_origin=board_action,
-                center_timeline=state.center_timeline,
+            return (
+                State(
+                    board=new_board,
+                    player=state.player,
+                    piece_held=piece,
+                    held_piece_origin=board_action,
+                    center_timeline=state.center_timeline,
+                ),
+                torch.zeros(2),
+                False,
+                dict(),
             )
         else:
-            new_board = torch.where(
-                torch.eq(new_board, self.REMOVED), self.EMPTY, new_board
-            )
+            new_center_timeline = state.center_timeline
 
             time1, dim1, i1, j1 = state.held_piece_origin
             time2, dim2, i2, j2 = board_action
             if (time1, dim1) == (time2, dim2):
                 # Special case, where the move begins and ends on same board
-
                 new_frame = new_board[time1, dim1].clone()
+                new_frame[i1, j1] = self.EMPTY
                 new_frame[i2, j2] = self.moved_piece(
                     piece=state.piece_held,
                     pick=state.held_piece_origin,
@@ -137,48 +140,118 @@ class Chess5d(Game):
                             pick=torch.tensor((time2, dim2, i2, rook_pick_j)),
                             place=torch.tensor((time2, dim2, i2, rook_place_j)),
                         )
-                capture = new_board[*board_action]
+                capture = new_board[*board_action].clone()
                 if ident == self.PAWN:  # check for en passant
                     if abs(i2 - i1) == 1 and abs(j2 - j1) == 1:  # captured in xy coords
                         if torch.abs(new_frame[i1, j2]) == self.PASSANTABLE_PAWN:
-                            capture = new_frame[i1, j2]
+                            capture = new_frame[i1, j2].clone()
                             new_frame[i1, j2] = self.EMPTY
                 new_frame = self.mutate_remove_passantable_pieces(
                     frame=new_frame,
                     keep_idx=(i2, j2),
                 )
-                new_board = self.mutate_place_frame(
+                new_board, new_center_timeline = self.mutate_add_child_frame(
                     board=new_board,
+                    center_timeline=new_center_timeline,
                     frame=new_frame,
-                    td_idx=(time1 + 1, dim2),
+                    td_idx=(time2, dim2),
                 )
-                print(capture)
             else:
-                pass
-            return State(
-                board=new_board,
-                player=state.player,
-                center_timeline=state.center_timeline,
+                new_frame_pick = new_board[time1, dim1].clone()
+                new_frame_pick[i1, j1] = self.EMPTY
+                # no pieces are enpassantable on this board,
+                #  since any pieces that were enpassantable have had a turn pass
+                #  and the move is not pawn up 2
+                new_frame_pick = self.mutate_remove_passantable_pieces(
+                    frame=new_frame_pick, keep_idx=None
+                )
+                new_board, new_center_timeline = self.mutate_add_child_frame(
+                    board=new_board,
+                    center_timeline=new_center_timeline,
+                    frame=new_frame_pick,
+                    td_idx=(time1, dim1),
+                )
+                new_frame_place = new_board[time2, dim2].clone()
+                capture = new_board[*board_action].clone()
+                new_frame_place[i2, j2] = self.moved_piece(
+                    piece=state.piece_held,
+                    pick=state.held_piece_origin,
+                    place=board_action,
+                )
+                new_frame_place = self.mutate_remove_passantable_pieces(
+                    frame=new_frame_place, keep_idx=(i2, j2)
+                )
+                new_board, new_center_timeline = self.mutate_add_child_frame(
+                    board=new_board,
+                    center_timeline=new_center_timeline,
+                    frame=new_frame_place,
+                    td_idx=(time2, dim2),
+                )
+
+            print(capture)
+
+            return (
+                State(
+                    board=new_board,
+                    player=state.player,
+                    center_timeline=new_center_timeline,
+                ),
+                torch.zeros(2),
+                False,
+                dict(),
             )
 
-    def mutate_place_frame(self, board, frame, td_idx):
-        # TODO: fix this
-        while td_idx[0] >= len(board):
-            # add a time slice of BLOCKED spaces
+    def mutate_add_child_frame(self, board, center_timeline, frame, td_idx):
+        """
+        adds child to the frame specified by td_idx
+        :param td_idx: (time, dimension)
+        :param board: board to change
+        :param frame: frame (nxn) to add as child
+        Returns: dimenison spawned (idx)
+        """
+        time, dim = td_idx
+        if self.idx_exists(board=board, td_idx=(time + 1, dim)):
+            player = self.player_at(time)
             blocked_slice = self.BLOCKED * torch.ones(
-                (1, *board.shape[1:]), dtype=board.dtype
+                (board.shape[0], 1, *board.shape[2:]), dtype=board.dtype
             )
-            board = torch.concatenate((board, blocked_slice), dim=0)
-        board[td_idx] = frame
+            if player == 1:
+                new_dim = 0
+                board = torch.concatenate((blocked_slice, board), dim=1)
+                center_timeline += 1
+            else:
+                new_dim = board.shape[1]
+                board = torch.concatenate((board, blocked_slice), dim=1)
+        else:
+            new_dim = dim
+            while time + 1 >= len(board):
+                blocked_slice = self.BLOCKED * torch.ones(
+                    (1, *board.shape[1:]), dtype=board.dtype
+                )
+                board = torch.concatenate((board, blocked_slice), dim=0)
+        board[time + 1, new_dim] = frame
+        return board, center_timeline
 
-        return board
+    def idx_exists(self, board, td_idx):
+        time, dim = td_idx
+        return (time < board.shape[0]) and not torch.any(
+            torch.eq(board[time, dim], self.BLOCKED)
+        )
 
-    def mutate_remove_passantable_pieces(self, frame, keep_idx):
+    def player_at(self, time):
+        """
+        1 for first player
+        -1 for second player
+        """
+        return 1 - 2 * (time % 2)
+
+    def mutate_remove_passantable_pieces(self, frame, keep_idx=None):
         """
         MUTATES FRAME
         """
         passantable = torch.eq(torch.abs(frame), self.PASSANTABLE_PAWN)
-        passantable[*keep_idx] = False
+        if keep_idx is not None:
+            passantable[*keep_idx] = False
         # change all passantable pawns to normal pawns, with the correct sign
         frame[passantable] = torch.sign(frame[passantable]) * self.PAWN
         return frame
@@ -192,19 +265,23 @@ class Chess5d(Game):
             if place[2] == self.BOARD_SIZE - 1 or place[2] == 0:
                 # TODO: if we want choice, add an UNKNOWN piece, and special actions for each possible choice
                 ident = self.QUEEN
-            if torch.abs(pick[2] - place[2]) == 2:
+            if abs(pick[2] - place[2]) == 2:
                 # pawn moved two spaces, can be captured by enpassant
                 ident = self.PASSANTABLE_PAWN
         return ident * torch.sign(piece)
 
     def agent_observe(self, state):
-        # TODO: potentially flip board for black player
+        # TODO: potentially flip board for opponent
         return state.board, torch.concatenate(
             (torch.tensor([state.piece_held]), state.held_piece_origin)
         )
 
     def action_mask(self, state):
-        raise NotImplementedError
+        player_pieces = torch.logical_and(
+            torch.eq(torch.sign(state.board), state.player),
+            torch.le(state.board, self.LARGEST_PIECE),
+        )
+        return player_pieces
 
     def critic_observe(self, state):
         return state.board, torch.tensor([state.piece_held])
@@ -213,4 +290,21 @@ class Chess5d(Game):
 if __name__ == "__main__":
     c = Chess5d()
     b = c.init_state()
-    print(b)
+    b = c.step(b, (-1, [0, 0, 1, 0]))[0]
+    b = c.step(b, (-1, [0, 0, 3, 0]))[0]
+    b = c.step(b, (0, -torch.ones(4)))[0]
+    b = c.step(b, (-1, [1, 0, 6, 0]))[0]
+    b = c.step(b, (-1, [1, 0, 5, 0]))[0]
+    b = c.step(b, (0, -torch.ones(4)))[0]
+    b = c.step(b, (-1, [2, 0, 3, 0]))[0]
+    b = c.step(b, (-1, [2, 0, 4, 0]))[0]
+    b = c.step(b, (0, -torch.ones(4)))[0]
+    b = c.step(b, (-1, [3, 0, 6, 1]))[0]
+    b = c.step(b, (-1, [3, 0, 4, 1]))[0]
+    b = c.step(b, (0, -torch.ones(4)))[0]
+    b = c.step(b, (-1, [4, 0, 4, 0]))[0]
+    b = c.step(b, (-1, [4, 0, 5, 1]))[0]
+    b = c.step(b, (0, -torch.ones(4)))[0]
+    b = c.step(b, (-1, [5, 0, 6, 2]))[0]
+    b = c.step(b, (-1, [5, 0, 5, 1]))[0]
+    print(b.board)
