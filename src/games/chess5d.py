@@ -188,16 +188,21 @@ class Chess5d(Game):
                     td_idx=(time2, dim2),
                 )
 
-            print(capture)
-
+            captured_id = torch.abs(capture)
+            if captured_id == self.KING or captured_id == self.UNMOVED_KING:
+                term = True
+                rwd = torch.tensor([state.player, -state.player])
+            else:
+                term = False
+                rwd = torch.zeros(2)
             return (
                 State(
                     board=new_board,
                     player=state.player,
                     center_timeline=new_center_timeline,
                 ),
-                torch.zeros(2),
-                False,
+                rwd,
+                term,
                 dict(),
             )
 
