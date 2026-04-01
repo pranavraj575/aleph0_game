@@ -298,18 +298,83 @@ class Chess5d(Game):
     def critic_observe(self, state):
         return state.board, torch.tensor([state.piece_held])
 
+    def render_action_mask(self, canvas, state):
+        """
+        debug method for printing out action mask
+        """
+        mask = self.action_mask(state)[1]
+        self.render(
+            canvas,
+            State(
+                board=mask.to(torch.int),
+                player=state.player,
+                center_timeline=state.center_timeline,
+                piece_held=state.piece_held,
+                held_piece_origin=state.held_piece_origin,
+            ),
+        )
+
+    def render(self, canvas, state):
+        s = ""
+        for dim in range(state.board.shape[1] - 1, -1, -1):
+            if dim == state.center_timeline:
+                s += "(CENTER) "
+            s += f"D {dim}:\n"
+            for i in range(self.BOARD_SIZE - 1, -1, -1):
+                rows = state.board[:, dim, i, :].cpu().numpy()
+                row = "||".join("".join(map(self.piece_to_str, row)) for row in rows)
+
+                s += str(row)
+                s += "\n"
+            s += "\n\n"
+        print(s)
+
+    def piece_to_str(self, piece):
+        ident_str = "."
+        match abs(piece):
+            case self.UNMOVED_PAWN:
+                ident_str = "P"
+            case self.PAWN:
+                ident_str = "P"
+            case self.PASSANTABLE_PAWN:
+                ident_str = "P"
+            case self.KING:
+                ident_str = "K"
+            case self.UNMOVED_KING:
+                ident_str = "K"
+            case self.ROOK:
+                ident_str = "R"
+            case self.UNMOVED_ROOK:
+                ident_str = "R"
+            case self.KNIGHT:
+                ident_str = "N"
+            case self.BISHOP:
+                ident_str = "B"
+            case self.QUEEN:
+                ident_str = "Q"
+            case _:
+                ident_str = "."
+        if piece < 0:
+            return ident_str.lower()
+        else:
+            return ident_str
+
 
 if __name__ == "__main__":
     c = Chess5d()
+    canvas = c.get_canvas()
     b = c.init_state()
+
     b = c.step(b, (-1, [0, 0, 1, 0]))[0]
     b = c.step(b, (-1, [0, 0, 3, 0]))[0]
     b = c.step(b, (0, -torch.ones(4)))[0]
     b = c.step(b, (-1, [1, 0, 6, 0]))[0]
     b = c.step(b, (-1, [1, 0, 5, 0]))[0]
+
     b = c.step(b, (0, -torch.ones(4)))[0]
     b = c.step(b, (-1, [2, 0, 3, 0]))[0]
     b = c.step(b, (-1, [2, 0, 4, 0]))[0]
+
     b = c.step(b, (0, -torch.ones(4)))[0]
     b = c.step(b, (-1, [3, 0, 6, 1]))[0]
     b = c.step(b, (-1, [3, 0, 4, 1]))[0]
@@ -317,5 +382,13 @@ if __name__ == "__main__":
     b = c.step(b, (-1, [4, 0, 4, 0]))[0]
     b = c.step(b, (-1, [4, 0, 5, 1]))[0]
     b = c.step(b, (0, -torch.ones(4)))[0]
-    print(b)
-    print(c.action_mask(b))
+    b = c.step(b, (-1, [5, 0, 7, 1]))[0]
+    b = c.step(b, (-1, [3, 0, 5, 1]))[0]
+    b = c.step(b, (0, -torch.ones(4)))[0]
+    b = c.step(b, (-1, [4, 1, 4, 0]))[0]
+    b = c.step(b, (-1, [4, 1, 5, 1]))[0]
+    b = c.step(b, (0, -torch.ones(4)))[0]
+
+    c.render(canvas, b)
+    c.render_action_mask(canvas, b)
+    c.close_canvas(canvas)
