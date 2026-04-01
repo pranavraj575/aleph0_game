@@ -288,10 +288,17 @@ class Chess5d(Game):
             torch.le(state.board, self.LARGEST_PIECE),
         )
         p0 = (state.player + 1) // 2
-        players_time = (torch.arange(len(state.board)) + p0) % 2
-        action_mask = torch.logical_and(
-            player_pieces, players_time.reshape(-1, 1, 1, 1)
-        )
+        players_turn = (torch.arange(len(state.board)) + p0) % 2
+
+        # get 'leaves', which are the last board in a timeline
+        #  either last timestep, or all boards after are BLOCKED
+        leaves = torch.zeros_like(state.board, dtype=torch.bool)
+        leaves[-1] = 1
+        leaves[:-1] = torch.eq(state.board[1:], self.BLOCKED)
+
+        action_mask = torch.logical_and(leaves, players_turn.reshape(-1, 1, 1, 1))
+        action_mask = torch.logical_and(action_mask, player_pieces)
+
         special_moves = torch.ones(1, dtype=torch.bool)
         return special_moves, action_mask
 
@@ -327,10 +334,10 @@ class Chess5d(Game):
                 s += str(row)
                 s += "\n"
             s += "\n\n"
+        s += f"PLAYER {(1 - state.player) // 2}"
         print(s)
 
     def piece_to_str(self, piece):
-        ident_str = "."
         match abs(piece):
             case self.UNMOVED_PAWN:
                 ident_str = "P"
