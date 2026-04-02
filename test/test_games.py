@@ -44,18 +44,17 @@ def sample_from_action_mask(game: Game, action_mask):
 
 @pytest.mark.parametrize("seed", list(range(13)))
 @pytest.mark.parametrize("game", small_games)
-def test_game_playthrough(seed, game, depth=200):
+def test_game_playthrough(seed, game):
     torch.random.manual_seed(seed)
     s = game.init_state()
     terminal = False
-    while depth >= 0 and not terminal:
+    while not terminal:
         mask = game.action_mask(s)
         action = sample_from_action_mask(game, mask)
         game.agent_observe(s)
         game.critic_observe(s)
         assert game.is_valid(s, action)
         s, _, terminal, _ = game.step(s, action)
-        depth -= 1
 
 
 @pytest.mark.parametrize("seed", list(range(1)))
@@ -83,13 +82,13 @@ def equality(a, b):
 
 @pytest.mark.parametrize("seed", list(range(52)))
 @pytest.mark.parametrize("game", small_games)
-def test_seeded_randomness(seed, game, depth=200):
+def test_seeded_randomness(seed, game):
     torch.random.manual_seed(seed)
     s = game.init_state()
     torch.random.manual_seed(seed)
     s2 = game.init_state()
     terminal = False
-    while depth >= 0 and not terminal:
+    while not terminal:
         # change seed like this
         seed = seed + 1
         mask = game.action_mask(s)
@@ -100,4 +99,3 @@ def test_seeded_randomness(seed, game, depth=200):
         s, _, terminal, _ = game.step(s, action)
         torch.random.manual_seed(seed)
         s2, _, terminal, _ = game.step(s2, action)
-        depth -= 1

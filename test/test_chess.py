@@ -1,7 +1,8 @@
 import pytest
 import torch
+from test_games import sample_from_action_mask
 
-from src.games import Chess2d
+from src.games import Chess2d, Chess5d
 
 en_passant_tests = (
     [
@@ -229,3 +230,20 @@ def test_castling_OOO_failure():
         _, reward, term, _ = game.step_weak_type(temp_s, capture_squares)
         assert term
         assert reward[0] == -1 and reward[1] == 1
+
+
+@pytest.mark.parametrize("seed", list(range(3)))
+def test_chess5d_playthrough(seed, depth=250):
+    game = Chess5d()
+    torch.random.manual_seed(seed)
+    s = game.init_state()
+    terminal = False
+    while depth >= 0 and not terminal:
+        mask = game.action_mask(s)
+        action = sample_from_action_mask(game, mask)
+        game.agent_observe(s)
+        game.critic_observe(s)
+        assert game.is_valid(s, action)
+        s, _, terminal, _ = game.step(s, action)
+        depth -= 1
+    game.render(game.get_canvas(), s)
