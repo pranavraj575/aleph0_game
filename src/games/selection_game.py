@@ -86,9 +86,7 @@ class SelectionGame:
             if len(move_prefix) == self.selection_size:
                 yield move_prefix
             else:
-                for next_move in self.get_valid_next_selections(
-                    move_prefix=move_prefix
-                ):
+                for next_move in self.get_valid_next_selections(move_prefix=move_prefix):
                     new_prefix = move_prefix + (next_move,)
                     for valid_move in HELP_MEEEE(move_prefix=new_prefix):
                         yield valid_move
@@ -430,9 +428,7 @@ class FixedSizeSelectionGame(SelectionGame):
 
             all_indices = itertools.product(*[range(t) for t in board_shape])
             # all possible selections of self.subset_size
-            self.ind_to_move = list(
-                itertools.product(all_indices, repeat=self.selection_size)
-            )
+            self.ind_to_move = list(itertools.product(all_indices, repeat=self.selection_size))
             self.ind_to_move.extend(list(self.special_moves))
         return self.ind_to_move[idx]
 

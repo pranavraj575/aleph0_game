@@ -97,11 +97,7 @@ class Chess5d(SelectionGame):
             full_stalemate_check=self.full_stalemate_check,
         )
         out.turn_history = [
-            [
-                (Chess5d._flip_move(move), [-dim for dim in dims_spawned])
-                for (move, dims_spawned) in turn
-            ]
-            for turn in self.turn_history
+            [(Chess5d._flip_move(move), [-dim for dim in dims_spawned]) for (move, dims_spawned) in turn] for turn in self.turn_history
         ]
         return out
 
@@ -221,9 +217,7 @@ class Chess5d(SelectionGame):
 
         # this is a terminal move if we just captured the king, or if the player that just moved has no moves
         # we know the player that just moved has the next move since the last move was not END_TURN
-        self._add_move_to_history(
-            global_move=global_move, dimensions_spawned=dimensions_spawned
-        )
+        self._add_move_to_history(global_move=global_move, dimensions_spawned=dimensions_spawned)
         return capture, terminal
 
     def undo_move(self):
@@ -271,9 +265,7 @@ class Chess5d(SelectionGame):
             turn.append((move, caputure))
         if include_boundary:
             self.undo_move()  # this is the END_MOVE token, we can ignore it
-        return turn[
-            ::-1
-        ]  # reverse the history, since we put the moves on in reversed order
+        return turn[::-1]  # reverse the history, since we put the moves on in reversed order
 
     def get_board(self, global_td_idx):
         return self.multiverse.get_board(global_td_idx)
@@ -352,9 +344,7 @@ class Chess5d(SelectionGame):
         idx_time, idx_dim, idx_i, idx_j = global_idx
         piece = self.get_board((idx_time, idx_dim)).get_piece((idx_i, idx_j))
         pid = P.piece_id(piece)
-        q_k_dims = itertools.chain(
-            *[itertools.combinations(range(4), k) for k in range(1, 5)]
-        )
+        q_k_dims = itertools.chain(*[itertools.combinations(range(4), k) for k in range(1, 5)])
 
         if pid in (
             P.ROOK,
@@ -386,17 +376,11 @@ class Chess5d(SelectionGame):
                     pos = [idx_time, idx_dim, idx_i, idx_j]
                     vec = np.array((0, 0, 0, 0))
                     for k, dim in enumerate(dims):
-                        vec[dim] = signs[k] * (
-                            (dim == 0) + 1
-                        )  # mult by 2 if dim is time
+                        vec[dim] = signs[k] * ((dim == 0) + 1)  # mult by 2 if dim is time
                     pos += vec
-                    while self.idx_exists(pos[:2], pos[2:]) and (
-                        P.player_of(piece) != P.player_of(self.get_piece(pos))
-                    ):
+                    while self.idx_exists(pos[:2], pos[2:]) and (P.player_of(piece) != P.player_of(self.get_piece(pos))):
                         yield tuple(tt.item() for tt in pos)
-                        if (
-                            P.player_of(self.get_piece(pos)) is not None
-                        ) or pid == P.KING:
+                        if (P.player_of(self.get_piece(pos)) is not None) or pid == P.KING:
                             # end of the line, or the king which moves single spaces
                             break
                         pos += vec
@@ -409,9 +393,7 @@ class Chess5d(SelectionGame):
                         # multiply one of the dimensions by 1 and one by 2
                         # can do this with *(k+1)
                         pos[dim] += (k + 1) * signs[k] * ((dim == 0) + 1)
-                    if self.idx_exists(pos[:2], pos[2:]) and (
-                        P.player_of(piece) != P.player_of(self.get_piece(pos))
-                    ):
+                    if self.idx_exists(pos[:2], pos[2:]) and (P.player_of(piece) != P.player_of(self.get_piece(pos))):
                         yield tuple(pos)
         if pid == P.PAWN:
             player = self.player_at(time=idx_time)
@@ -421,9 +403,7 @@ class Chess5d(SelectionGame):
                 pos = [idx_time, idx_dim, idx_i, idx_j]
                 for _ in range(1 + P.is_unmoved(piece)):
                     pos[dim] += dir
-                    if self.idx_exists(pos[:2], pos[2:]) and (
-                        P.player_of(self.get_piece(pos)) is None
-                    ):
+                    if self.idx_exists(pos[:2], pos[2:]) and (P.player_of(self.get_piece(pos)) is None):
                         yield tuple(pos)
                     else:
                         break
@@ -444,9 +424,7 @@ class Chess5d(SelectionGame):
             for other_j in (idx_j + 1, idx_j - 1):
                 if self.idx_exists((idx_time, idx_dim), (idx_i, other_j)):
                     other_piece = self.get_piece((idx_time, idx_dim, idx_i, other_j))
-                    if P.player_of(other_piece) != P.player_of(
-                        piece
-                    ) and P.en_passantable(other_piece):
+                    if P.player_of(other_piece) != P.player_of(piece) and P.en_passantable(other_piece):
                         yield (idx_time, idx_dim, idx_i + dir, other_j)
 
         # castling check
@@ -463,26 +441,13 @@ class Chess5d(SelectionGame):
 
                         rook_dist = abs(rook_j - idx_j)
                         # if there is a piece blocking a middle square, castling this way is bad
-                        if any(
-                            P.player_of(
-                                self.get_piece(
-                                    (idx_time, idx_dim, rook_i, idx_j + dir * k)
-                                )
-                            )
-                            is not None
-                            for k in range(1, rook_dist)
-                        ):
+                        if any(P.player_of(self.get_piece((idx_time, idx_dim, rook_i, idx_j + dir * k))) is not None for k in range(1, rook_dist)):
                             continue
 
-                        king_hop_squares = {
-                            (idx_time, idx_dim, rook_i, idx_j + dir * k)
-                            for k in range(1, 3)
-                        }
+                        king_hop_squares = {(idx_time, idx_dim, rook_i, idx_j + dir * k) for k in range(1, 3)}
                         # if there is a piece attacking a square the king hops over
                         # for some reason time travel is ignored in the game
-                        for square in self.attacked_squares(
-                            player=P.flip_player(P.player_of(piece)), time_travel=False
-                        ):
+                        for square in self.attacked_squares(player=P.flip_player(P.player_of(piece)), time_travel=False):
                             if square in king_hop_squares:
                                 works = False
                                 break
@@ -513,9 +478,7 @@ class Chess5d(SelectionGame):
         in_check = False
         all_moves = []
         for td_idx in self._players_boards_with_possible_moves(player=player):
-            for global_move in self._board_all_possible_moves(
-                global_td_idx=td_idx, castling=castling
-            ):
+            for global_move in self._board_all_possible_moves(global_td_idx=td_idx, castling=castling):
                 index, end_idx = global_move
                 if P.piece_id(self.get_piece(end_idx)) == P.KING:
                     in_check = True
@@ -568,9 +531,7 @@ class Chess5d(SelectionGame):
             PLAYING THE GAME LIKE THIS WILL BE BETTER FOR RUNTIME
         """
 
-        def all_DAG_subgraphs_with_property(
-            edge_list: dict, used_sources=None, used_vertices=None
-        ):
+        def all_DAG_subgraphs_with_property(edge_list: dict, used_sources=None, used_vertices=None):
             """
             iterable of all lists of edges that create a DAG such that each vertex is the source of at most one edge
                 (we run through all permutations, sort of wasteful)
@@ -609,12 +570,8 @@ class Chess5d(SelectionGame):
         # this will be a list of lists
         # all moves on each board playable board
         partition = dict()  # partitions all moves by start, end board
-        edge_list = {
-            td_idx: set() for td_idx in possible_boards
-        }  # edges we care about, just the edges between active boards
-        non_edges = {
-            td_idx: set() for td_idx in possible_boards
-        }  # other moves, active -> inactive boards
+        edge_list = {td_idx: set() for td_idx in possible_boards}  # edges we care about, just the edges between active boards
+        non_edges = {td_idx: set() for td_idx in possible_boards}  # other moves, active -> inactive boards
         for td_idx in possible_boards:
             for move in self._board_all_possible_moves(global_td_idx=td_idx):
                 start_idx, end_idx = move
@@ -627,28 +584,20 @@ class Chess5d(SelectionGame):
                 if equiv_class not in partition:
                     partition[equiv_class] = set()
                 partition[equiv_class].add(move)
-        for edges, used_sources, used_boards in all_DAG_subgraphs_with_property(
-            edge_list=edge_list
-        ):
+        for edges, used_sources, used_boards in all_DAG_subgraphs_with_property(edge_list=edge_list):
             # we must also add moves from the non-edges
             other_boards = possible_boards.difference(used_sources)
             for i in range(len(other_boards) + 1):
                 for other_initial_boards in itertools.combinations(other_boards, i):
                     # other initial boards is a list of td_idxes
-                    for other_final_boards in itertools.product(
-                        *(non_edges[td_idx] for td_idx in other_initial_boards)
-                    ):
-                        other_edges = tuple(
-                            zip(other_initial_boards, other_final_boards)
-                        )
+                    for other_final_boards in itertools.product(*(non_edges[td_idx] for td_idx in other_initial_boards)):
+                        other_edges = tuple(zip(other_initial_boards, other_final_boards))
                         # this is now a list of (td_idx start, td_idx end)
 
                         # this is now a list of (td_idx start, td_idx end) in correct order
                         order = other_edges + edges
                         # we will now choose moves of each class, and send them out
-                        for move_list in itertools.product(
-                            *(partition[equiv_class] for equiv_class in order)
-                        ):
+                        for move_list in itertools.product(*(partition[equiv_class] for equiv_class in order)):
                             yield move_list
 
     def all_possible_turn_sets(self, player=None):
@@ -658,9 +607,7 @@ class Chess5d(SelectionGame):
 
         if player is None:
             player = self.player_at(self.present())
-        sign = P.player_to_sign(
-            player
-        )  # direction of dimensions, 1 for black, -1 for white
+        sign = P.player_to_sign(player)  # direction of dimensions, 1 for black, -1 for white
         possible_boards = set(self._players_boards_with_possible_moves(player=player))
         possible_presents = set(self.boards_with_possible_moves())
 
@@ -681,9 +628,7 @@ class Chess5d(SelectionGame):
                 else:
                     used_dims.add(dim2)
             active_number = self._get_active_number(dim_range=dim_range)
-            present = min(
-                time for time, dim in possible_gifts if abs(dim) <= active_number
-            )
+            present = min(time for time, dim in possible_gifts if abs(dim) <= active_number)
             success = True
             for time, dim in possible_boards:
                 if dim not in used_dims:
@@ -788,9 +733,7 @@ class Chess5d(SelectionGame):
             # FOR THE MOST PART, PERMUTATIONS SHOULD NOT HELP GETTING OUT OF CHECK
 
             # for moves in itertools.permutations(moveset):
-            for moves in (
-                moveset,
-            ):  # incorrect technically, for correctness use earlier line
+            for moves in (moveset,):  # incorrect technically, for correctness use earlier line
                 temp_game = self.clone()
                 failed = False
                 for move in moves:
@@ -907,25 +850,19 @@ class Chess5d(SelectionGame):
         """
         returns the time index of the present
         """
-        return min(
-            t for (t, d) in self.boards_with_possible_moves() if self._dim_is_active(d)
-        )
+        return min(t for (t, d) in self.boards_with_possible_moves() if self._dim_is_active(d))
 
     def convert_to_local_move(self, global_move):
         if global_move == Chess5d.END_TURN:
             return Chess5d.END_TURN
         else:
-            return tuple(
-                self.convert_to_local_idx(global_idx) for global_idx in global_move
-            )
+            return tuple(self.convert_to_local_idx(global_idx) for global_idx in global_move)
 
     def convert_to_global_move(self, local_move):
         if local_move == Chess5d.END_TURN:
             return Chess5d.END_TURN
         else:
-            return tuple(
-                self.convert_to_global_idx(local_idx) for local_idx in local_move
-            )
+            return tuple(self.convert_to_global_idx(local_idx) for local_idx in local_move)
 
     def convert_to_local_idx(self, global_idx):
         """
@@ -1001,9 +938,7 @@ class Chess5d(SelectionGame):
         Returns:
             iterable of (self.subset_size tuples of N tuples)
         """
-        for global_move in self._all_possible_selection_moves(
-            player=self.current_player, castling=True
-        ):
+        for global_move in self._all_possible_selection_moves(player=self.current_player, castling=True):
             yield self.convert_to_local_move(global_move=global_move)
 
     def valid_special_moves(self):
@@ -1041,22 +976,16 @@ class Chess5d(SelectionGame):
         # create boards
         overall_range = self.multiverse.get_range()
         # by default assume each square is blocked
-        piece_board = self.BLOCKED_PIECE * torch.ones(
-            (time_len, dimensions, xlen, ylen), dtype=torch.long
-        )
+        piece_board = self.BLOCKED_PIECE * torch.ones((time_len, dimensions, xlen, ylen), dtype=torch.long)
         # by default, all timelines are inactive
         active_board = torch.zeros((time_len, dimensions, xlen, ylen), dtype=torch.long)
         # by default no boards are movable
-        movable_board = torch.zeros(
-            (time_len, dimensions, xlen, ylen), dtype=torch.long
-        )
+        movable_board = torch.zeros((time_len, dimensions, xlen, ylen), dtype=torch.long)
 
         for i, dim_idx in enumerate(range(overall_range[0], overall_range[1] + 1)):
             timeline = self.multiverse.get_timeline(dim_idx=dim_idx)
             # set the pieces of the boards in this timeline
-            piece_board[timeline.start_idx : timeline.end_time() + 1, i, :, :] = (
-                timeline.get_board_as_idxs_stack()
-            )
+            piece_board[timeline.start_idx : timeline.end_time() + 1, i, :, :] = timeline.get_board_as_idxs_stack()
             if self._dim_is_active(dim_idx):
                 # set this dimension to active if it is active
                 active_board[:, i, :, :] = 1

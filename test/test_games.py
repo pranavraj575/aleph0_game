@@ -33,9 +33,7 @@ def sample_from_action_mask(game: Game, action_mask):
         else:
             return (
                 -1,
-                torch.cat(
-                    torch.unravel_index(action - len(special_mask), board_mask.shape)
-                ),
+                torch.cat(torch.unravel_index(action - len(special_mask), board_mask.shape)),
             )
     else:
         # action mask is a tensor

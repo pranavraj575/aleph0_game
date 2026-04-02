@@ -31,14 +31,10 @@ class Board:
                 ]
             else:
                 raise Exception("NO DEFAULT FOR BOARD SIZE " + str(Board.BOARD_SIZE))
-            for i, row in enumerate(
-                (back_rank, [P.UNMOVED_PAWN for _ in range(Board.BOARD_SIZE)])
-            ):
+            for i, row in enumerate((back_rank, [P.UNMOVED_PAWN for _ in range(Board.BOARD_SIZE)])):
                 board[i] = torch.tensor([P.as_player(piece, P.P0) for piece in row])
 
-                board[Board.BOARD_SIZE - i - 1] = torch.tensor(
-                    [P.as_player(piece, P.P1) for piece in row]
-                )
+                board[Board.BOARD_SIZE - i - 1] = torch.tensor([P.as_player(piece, P.P1) for piece in row])
         self.board = board
 
     def flipped(self):
@@ -117,9 +113,7 @@ class Board:
         :return: iterable of (i,j)
         """
 
-        for i, j in zip(
-            *torch.where(torch.eq(torch.sign(self.board), P.player_to_sign(player)))
-        ):
+        for i, j in zip(*torch.where(torch.eq(torch.sign(self.board), P.player_to_sign(player)))):
             yield i.item(), j.item()
 
     def clone(self):

@@ -82,11 +82,7 @@ class Chess2d(Chess5d, FixedSizeSelectionGame):
             term_ev=self.term_ev,
         )
         out.turn_history = [
-            [
-                (Chess5d._flip_move(move), [-dim for dim in dims_spawned])
-                for (move, dims_spawned) in turn
-            ]
-            for turn in self.turn_history
+            [(Chess5d._flip_move(move), [-dim for dim in dims_spawned]) for (move, dims_spawned) in turn] for turn in self.turn_history
         ]
         return out
 
@@ -308,9 +304,7 @@ if __name__ == "__main__":
     game = game.make_move(((0, 0), (1, 1)))
     print(game)
     assert game.is_terminal()
-    print(
-        "expected p0 win:", game.get_result()
-    )  # P0 should win, as P1 could have taken the queen but did not
+    print("expected p0 win:", game.get_result())  # P0 should win, as P1 could have taken the queen but did not
     assert game.get_result() == (1, 0)
 
     # (2b) in Chess5d._terminal_eval: dumb move, not in check
@@ -318,9 +312,7 @@ if __name__ == "__main__":
     game = game.make_move(((0, 0), (1, 1)))
     print(game)
     assert game.is_terminal()
-    print(
-        "expected p0 win:", game.get_result()
-    )  # P0 should win, as P1 could have taken the queen but did not
+    print("expected p0 win:", game.get_result())  # P0 should win, as P1 could have taken the queen but did not
     assert game.get_result() == (1, 0)
 
     # stalemate

@@ -34,6 +34,7 @@ dev = [
 [tool.ruff]
 fix = true
 indent-width = 4
+line-length = 150
 
 [tool.ruff.lint]
 ignore = [

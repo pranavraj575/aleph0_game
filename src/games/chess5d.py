@@ -153,9 +153,7 @@ class Chess5d(Game):
                         if j2 > j1:
                             new_frame[i1, j1:j2] = self.GHOST_KING * state.player
                         else:
-                            new_frame[i1, j2 + 1 : j1 + 1] = (
-                                self.GHOST_KING * state.player
-                            )
+                            new_frame[i1, j2 + 1 : j1 + 1] = self.GHOST_KING * state.player
                         rook_pick_j = 0 if diff < 0 else self.BOARD_SIZE - 1
                         rook_place_j = int((j2 + j1) / 2)
 
@@ -163,11 +161,8 @@ class Chess5d(Game):
                         # TODO: is there a better way to set player than multiplication here
                         new_frame[i2, rook_place_j] = self.GHOST_ROOK * state.player
                 if ident == self.PAWN:  # check for en passant
-                    if abs(i2 - i1) == 1 and abs(j2 - j1) == 1:  # captured in xy coords
-                        if (
-                            torch.abs(new_board[time1, dim1, i1, j2])
-                            == self.PASSANTABLE_PAWN
-                        ):
+                    if (abs(i2 - i1) == 1) and (abs(j2 - j1) == 1):  # captured in xy coords
+                        if torch.abs(new_board[time1, dim1, i1, j2]) == self.PASSANTABLE_PAWN:
                             capture = new_frame[i1, j2].clone()
                             new_frame[i1, j2] = self.EMPTY
                 new_board, new_center_timeline = self.mutate_add_child_frame(
@@ -182,9 +177,7 @@ class Chess5d(Game):
                 # no pieces are enpassantable on this board,
                 #  since any pieces that were enpassantable have had a turn pass
                 #  and the move is not pawn up 2
-                new_frame_pick = self.mutate_remove_temporary_states(
-                    frame=new_frame_pick
-                )
+                new_frame_pick = self.mutate_remove_temporary_states(frame=new_frame_pick)
                 new_board, new_center_timeline = self.mutate_add_child_frame(
                     board=new_board,
                     center_timeline=new_center_timeline,
@@ -193,9 +186,7 @@ class Chess5d(Game):
                 )
                 new_frame_place = new_board[time2, dim2].clone()
                 capture = new_board[*board_action].clone()
-                new_frame_place = self.mutate_remove_temporary_states(
-                    frame=new_frame_place
-                )
+                new_frame_place = self.mutate_remove_temporary_states(frame=new_frame_place)
                 new_frame_place[i2, j2] = self.moved_piece(
                     piece=state.piece_held,
                     pick=state.held_piece_origin,
@@ -243,9 +234,7 @@ class Chess5d(Game):
         time, dim = td_idx
         if self.idx_exists(board=board, td_idx=(time + 1, dim)):
             player = self.player_at(time)
-            blocked_slice = self.BLOCKED * torch.ones(
-                (board.shape[0], 1, *board.shape[2:]), dtype=board.dtype
-            )
+            blocked_slice = self.BLOCKED * torch.ones((board.shape[0], 1, *board.shape[2:]), dtype=board.dtype)
             if player == 1:
                 new_dim = 0
                 board = torch.concatenate((blocked_slice, board), dim=1)
@@ -256,9 +245,7 @@ class Chess5d(Game):
         else:
             new_dim = dim
             while time + 1 >= len(board):
-                blocked_slice = self.BLOCKED * torch.ones(
-                    (1, *board.shape[1:]), dtype=board.dtype
-                )
+                blocked_slice = self.BLOCKED * torch.ones((1, *board.shape[1:]), dtype=board.dtype)
                 board = torch.concatenate((board, blocked_slice), dim=0)
         board[time + 1, new_dim] = frame
         return board, center_timeline
@@ -275,8 +262,7 @@ class Chess5d(Game):
             and (i < self.BOARD_SIZE)
             and (j >= 0)
             and (j < self.BOARD_SIZE)
-            and board[time, dim, i, j]
-            != self.BLOCKED  # if one is blocked, they all are
+            and board[time, dim, i, j] != self.BLOCKED  # if one is blocked, they all are
         )
 
     def player_at(self, time):
@@ -307,8 +293,8 @@ class Chess5d(Game):
         # if unmoved (pawn, king, rook), it is now moved
         if self.LOWEST_UNMOVED <= ident and ident <= self.HIGHEST_UNMOVED:
             ident = ident - self.UNMOVED_SHIFT
-        if ident == self.PAWN or ident == self.PASSANTABLE_PAWN:
-            if place[2] == self.BOARD_SIZE - 1 or place[2] == 0:
+        if (ident == self.PAWN) or (ident == self.PASSANTABLE_PAWN):
+            if (place[2] == self.BOARD_SIZE - 1) or (place[2] == 0):
                 # TODO: if we want choice, add an UNKNOWN piece, and special actions for each possible choice
                 ident = self.QUEEN
             if abs(pick[2] - place[2]) == 2:
@@ -319,9 +305,7 @@ class Chess5d(Game):
     def agent_observe(self, state):
         # TODO: potentially flip board for opponent
         #  also maybe denote what piece was removed better (instead of just giving index)
-        return state.board, torch.concatenate(
-            (torch.tensor([state.piece_held]), state.held_piece_origin)
-        )
+        return state.board, torch.concatenate((torch.tensor([state.piece_held]), state.held_piece_origin))
 
     def action_mask(self, state):
         if state.piece_held != 0:
@@ -346,12 +330,7 @@ class Chess5d(Game):
             action_mask = torch.logical_and(action_mask, player_pieces)
             for piece_idx in zip(*torch.where(action_mask)):
                 piece_idx = torch.tensor(piece_idx)
-                if (
-                    next(
-                        self._piece_possible_moves(state.board, piece_idx.clone()), None
-                    )
-                    is None
-                ):
+                if next(self._piece_possible_moves(state.board, piece_idx.clone()), None) is None:
                     action_mask[*piece_idx] = False
 
         special_moves = torch.ones(1, dtype=torch.bool)
@@ -389,27 +368,17 @@ class Chess5d(Game):
                     itertools.combinations(range(4), 2),
                 )
             else:
-                dims_to_change = itertools.chain(
-                    *[itertools.combinations(range(4), k) for k in range(1, 5)]
-                )
+                dims_to_change = itertools.chain(*[itertools.combinations(range(4), k) for k in range(1, 5)])
             for dims in dims_to_change:
                 for signs in itertools.product((-1, 1), repeat=len(dims)):
                     pos = piece_idx.clone()
                     vec = torch.tensor((0, 0, 0, 0))
                     for k, dim in enumerate(dims):
-                        vec[dim] = signs[k] * (
-                            (dim == 0) + 1
-                        )  # mult by 2 if dim is time
+                        vec[dim] = signs[k] * ((dim == 0) + 1)  # mult by 2 if dim is time
                     pos += vec
-                    while self.idx_exists(board, pos[:2], pos[2:]) and (
-                        torch.sign(board[*pos]) != player
-                    ):
+                    while self.idx_exists(board, pos[:2], pos[2:]) and (torch.sign(board[*pos]) != player):
                         yield pos.clone()
-                        if (
-                            (torch.sign(board[*pos]) != 0)
-                            or ident == self.KING
-                            or ident == self.UNMOVED_KING
-                        ):
+                        if (torch.sign(board[*pos]) != 0) or (ident == self.KING) or (ident == self.UNMOVED_KING):
                             # end of the line, or the king which moves single spaces
                             break
                         pos += vec
@@ -422,19 +391,15 @@ class Chess5d(Game):
                         # multiply one of the dimensions by 1 and one by 2
                         # can do this with *(k+1)
                         pos[dim] += (k + 1) * signs[k] * ((dim == 0) + 1)
-                    if self.idx_exists(board, pos[:2], pos[2:]) and (
-                        player != torch.sign(board[*pos])
-                    ):
+                    if self.idx_exists(board, pos[:2], pos[2:]) and (player != torch.sign(board[*pos])):
                         yield pos
-        if ident == self.PAWN or ident == self.UNMOVED_PAWN:
+        if (ident == self.PAWN) or (ident == self.UNMOVED_PAWN):
             # forward moves, add 'player', which is 1 or -1
             for dim in (2, 1):
                 pos = piece_idx.clone()
                 for _ in range(1 + (ident == self.UNMOVED_PAWN)):
                     pos[dim] += player
-                    if self.idx_exists(board, pos[:2], pos[2:]) and (
-                        torch.sign(board[*pos]) == 0
-                    ):
+                    if self.idx_exists(board, pos[:2], pos[2:]) and (torch.sign(board[*pos]) == 0):
                         yield pos.clone()
                     else:
                         break
@@ -444,19 +409,14 @@ class Chess5d(Game):
                     pos = piece_idx.clone()
                     pos[dims[0]] += player
                     pos[dims[1]] += aux_sign
-                    if self.idx_exists(board, pos[:2], pos[2:]) and (
-                        torch.sign(board[*pos]) == -player
-                    ):
+                    if self.idx_exists(board, pos[:2], pos[2:]) and (torch.sign(board[*pos]) == -player):
                         # this MUST be a capture
                         yield pos
             # en passant check
             for other_j in (idx_j + 1, idx_j - 1):
                 if self.idx_exists(board, piece_idx[:2], (idx_i, other_j)):
                     other_piece = board[*piece_idx[:3], other_j]
-                    if (
-                        torch.sign(other_piece) == -player
-                        and torch.abs(other_piece) == self.PASSANTABLE_PAWN
-                    ):
+                    if (torch.sign(other_piece) == -player) and (torch.abs(other_piece) == self.PASSANTABLE_PAWN):
                         pos = piece_idx.clone()
                         pos[2] += player
                         pos[3] = other_j
@@ -469,19 +429,12 @@ class Chess5d(Game):
             for rook_j in (0, self.BOARD_SIZE - 1):
                 # potential rook squares
                 rook_maybe = board[idx_time, idx_dim, rook_i, rook_j]
-                if (
-                    torch.sign(rook_maybe) == player
-                    and torch.abs(rook_maybe) == self.UNMOVED_ROOK
-                ):
+                if rook_maybe == player * self.UNMOVED_ROOK:
                     dir = torch.sign(rook_j - idx_j)
                     if rook_j > idx_j:
-                        mid_squares = board[
-                            idx_time, idx_dim, rook_i, idx_j + 1 : rook_j
-                        ]
+                        mid_squares = board[idx_time, idx_dim, rook_i, idx_j + 1 : rook_j]
                     else:
-                        mid_squares = board[
-                            idx_time, idx_dim, rook_i, rook_j + 1 : idx_j
-                        ]
+                        mid_squares = board[idx_time, idx_dim, rook_i, rook_j + 1 : idx_j]
                     if torch.all(torch.eq(mid_squares, 0)):
                         pos = piece_idx.clone()
                         pos[3] = idx_j + 2 * dir
@@ -586,10 +539,8 @@ class Chess2d(Chess5d):
         )
         new_state, rewards, terminal, aux = super().step(state, new_action)
         # if we have just placed a piece, it is oppoenents turn
-        if (not terminal) and new_state.piece_held == 0:
-            new_state, rewards, terminal, auxp = super().step(
-                new_state, (torch.tensor(0), -torch.ones(4, dtype=torch.int))
-            )
+        if (not terminal) and (new_state.piece_held == 0):
+            new_state, rewards, terminal, auxp = super().step(new_state, (torch.tensor(0), -torch.ones(4, dtype=torch.int)))
             return new_state, rewards, terminal, aux | auxp
         return new_state, rewards, terminal, aux
 

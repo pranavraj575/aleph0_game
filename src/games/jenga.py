@@ -68,9 +68,7 @@ class Jenga(Game):
         self.scale = scale  # in m/u where u is the unit we use
         self.std_block_size = std_block_size / self.scale  # convert from m to u
         self.std_block_spacing = std_block_spacing / self.scale  # convert from m to u
-        self.std_wood_density = (
-            std_wood_density * self.scale**3
-        )  # convert from kg/m^3 to kg/u^3
+        self.std_wood_density = std_wood_density * self.scale**3  # convert from kg/m^3 to kg/u^3
         self.tolerance = tolerance / self.scale  # convert from m to u
         self.deterministic = deterministic
         self.pos_std = position_stdev / self.scale  # convert from m to u
@@ -100,9 +98,7 @@ class Jenga(Game):
     def step(self, state, action):
         new_tower = state.tower.clone()
         if action[0] >= len(new_tower):
-            new_tower = torch.concatenate(
-                (new_tower, torch.zeros(1, self.k, self.BLOCK_VEC_DIM)), dim=0
-            )
+            new_tower = torch.concatenate((new_tower, torch.zeros(1, self.k, self.BLOCK_VEC_DIM)), dim=0)
         if state.phase == 0:
             block = state.tower[*action]
             new_tower[*action] = 0
@@ -115,9 +111,7 @@ class Jenga(Game):
         else:
             mean = torch.tensor([0, 0, self.std_block_size[2] * (action[0] + 0.5)])
             # offset the mean in the appropriate direction
-            mean[action[0] % 2 + 1] += (action[1] - (self.k - 1) / 2) * (
-                self.std_block_size[1] + self.std_block_spacing
-            )
+            mean[action[0] % 2 + 1] += (action[1] - (self.k - 1) / 2) * (self.std_block_size[1] + self.std_block_spacing)
             yaw = torch.tensor(((action[0] % 2) * torch.pi / 2,))
             new_tower[*action] = self.generate_random_blocks(
                 means=mean.unsqueeze(0),
@@ -142,9 +136,7 @@ class Jenga(Game):
 
     def agent_observe(self, state):
         tower_obs = state.tower[:, :, :9]
-        return tower_obs, torch.concatenate(
-            (torch.tensor((state.phase,)), state.stored_block)
-        )
+        return tower_obs, torch.concatenate((torch.tensor((state.phase,)), state.stored_block))
 
     def action_mask(self, state):
         if state.phase == 0:
@@ -166,9 +158,7 @@ class Jenga(Game):
                 return action_mask
             else:
                 # otherwise, add a layer to tower, and we may place anywhere on that layer
-                action_mask = torch.zeros(
-                    state.tower.shape[0] + 1, self.k, dtype=torch.bool
-                )
+                action_mask = torch.zeros(state.tower.shape[0] + 1, self.k, dtype=torch.bool)
                 action_mask[-1] = True
                 return action_mask
 
@@ -224,9 +214,7 @@ class Jenga(Game):
                     # render the frames of the block placement
                     mean = torch.tensor([0, 0, self.std_block_size[2] * (h + 0.5)])
                     # offset the mean in the appropriate direction
-                    mean[h % 2 + 1] += (i - (self.k - 1) / 2) * (
-                        self.std_block_size[1] + self.std_block_spacing
-                    )
+                    mean[h % 2 + 1] += (i - (self.k - 1) / 2) * (self.std_block_size[1] + self.std_block_spacing)
                     yaw = torch.tensor(((h % 2) * torch.pi / 2,))
                     block = self.generate_random_blocks(
                         means=mean.unsqueeze(0),
@@ -253,9 +241,7 @@ class Jenga(Game):
 
         #  vertices.tile(2,1,1) is a 2,4,2 element that is two copies of vertices
         # heights.reshape(2,1,1).tile(1,4,1) is a (2,4,1) array whose 0th element is 4 copies of heights[0]
-        vertices = torch.concatenate(
-            (vertices.tile((2, 1, 1)), heights.reshape(2, 1, 1).tile(1, 4, 1)), dim=2
-        )
+        vertices = torch.concatenate((vertices.tile((2, 1, 1)), heights.reshape(2, 1, 1).tile(1, 4, 1)), dim=2)
         # vertices is now a 2,4,3 array where vertices[0] and vertices[1] are each a cycle of vertices at the lower and upper face of the block
         vertices = vertices.reshape(2, 2, 2, 3)
 
@@ -293,9 +279,7 @@ class Jenga(Game):
     def generate_initial_tower(self):
         layer_num = torch.arange(self.initial_height).repeat((self.k, 1)).T.flatten()
         # [0,0,0,1,1,1,...]
-        centered_block_num = (
-            torch.arange(self.initial_height * self.k) % self.k - (self.k - 1) / 2
-        )
+        centered_block_num = torch.arange(self.initial_height * self.k) % self.k - (self.k - 1) / 2
         # [-1,0,1,-1,0,1,...]
 
         mean_z = self.std_block_size[2] * (layer_num + 0.5)
@@ -341,9 +325,7 @@ class Jenga(Game):
         # (tower height, 3), moments (mass*com) of each layer
         layer_masses = torch.sum(masses, dim=1)
         # (tower height, 1), masses of each layer
-        suffix_COMs = tail_cumsum(layer_moments, dim=0) / tail_cumsum(
-            layer_masses, dim=0
-        )
+        suffix_COMs = tail_cumsum(layer_moments, dim=0) / tail_cumsum(layer_masses, dim=0)
         # to get the COM of the tower from layer i onwards, it is the sum of the respective moments divided by the sum of the respecitve masses
         return suffix_COMs
 
@@ -376,17 +358,13 @@ class Jenga(Game):
 
                 # filter projections by the ones actually within the hull
                 # shaped (num_equations, 2)
-                aug_proj = torch.concatenate(
-                    (projections, torch.ones(projections.shape[0], 1)), dim=-1
-                )
+                aug_proj = torch.concatenate((projections, torch.ones(projections.shape[0], 1)), dim=-1)
                 # eqns@aug_proj.T is an (num_eqns,num_eqns) array that represents each projection's distance from each equation
                 #  row i is the distance of every point from equation i
                 # taking the max over the 0th dimension gets for each point the max distance to all the equaitons
                 # only consider points where this value is <=0
 
-                projections = projections[
-                    torch.le(torch.max(eqns @ aug_proj.T, dim=0).values, self.tolerance)
-                ]
+                projections = projections[torch.le(torch.max(eqns @ aug_proj.T, dim=0).values, self.tolerance)]
 
                 # points to check are valid projections and the vertices of original hull
                 points = torch.concatenate((projections, vertices))
@@ -403,9 +381,7 @@ class Jenga(Game):
             # if instability scores are large, tower is unstable (and 1/(1+e^score) is close to 0)
             #  otherwise, tower is stable (product of many numbers close to 1)
 
-            surviving_probs = 1 / (
-                1 + torch.exp(self.sigmoid_constant * torch.tensor(instability_scores))
-            )
+            surviving_probs = 1 / (1 + torch.exp(self.sigmoid_constant * torch.tensor(instability_scores)))
             return torch.prod(surviving_probs)
 
     def generate_random_blocks(
@@ -450,16 +426,12 @@ class Jenga(Game):
         #  block_lengths+block_widths, block_lengths-block_widths, ...
         # do this vectorized by creating 'orientations', which is [1,-1,-1,1],[1,1,-1,-1] before reshaping
         angles = torch.arange(4) * torch.pi / 2 + torch.pi / 4
-        orientations = np.sqrt(2) * torch.stack(
-            (torch.cos(angles), torch.sin(angles))
-        ).reshape(2, 1, 1, 4)
+        orientations = np.sqrt(2) * torch.stack((torch.cos(angles), torch.sin(angles))).reshape(2, 1, 1, 4)
         # shaped (2,4), is [1,-1,-1,1],[1,1,-1,-1]
 
         block_lw = torch.stack((block_lengths, block_widths), dim=0)
         # (2, num_blocks, 2)
-        vertices = torch.sum(block_lw.unsqueeze(-1) * orientations, dim=0).permute(
-            0, 2, 1
-        )
+        vertices = torch.sum(block_lw.unsqueeze(-1) * orientations, dim=0).permute(0, 2, 1)
         # (num_blocks, 4,2), a list of vertices (x,y) for each block
         vertices = vertices + means[:, :2].unsqueeze(1)
         # recenter around xy means (reshaped to be num_blocks, 1, 2)

@@ -17,9 +17,7 @@ class Timeline:
     def from_representation(representation):
         board_list, start_idx = representation
         return Timeline(
-            board_list=[
-                Board.from_representation(board_rep) for board_rep in board_list
-            ],
+            board_list=[Board.from_representation(board_rep) for board_rep in board_list],
             start_idx=start_idx,
         )
 
@@ -48,9 +46,7 @@ class Timeline:
             return None
 
     def get_board_as_idxs_stack(self):
-        return torch.stack(
-            [board.get_board_as_indices() for board in self.board_list], dim=0
-        )
+        return torch.stack([board.get_board_as_indices() for board in self.board_list], dim=0)
 
     def get_time_range(self):
         """
@@ -78,9 +74,7 @@ class Timeline:
         s = ""
         interspace = len(str(self.end_time())) + 6
 
-        str_boards = [Board.empty_string() for _ in range(self.start_idx)] + [
-            board.__str__() for board in self.board_list
-        ]
+        str_boards = [Board.empty_string() for _ in range(self.start_idx)] + [board.__str__() for board in self.board_list]
         str_boards = [s.split("\n") for s in str_boards]
         for row in range(2 * Board.BOARD_SIZE):
             if row == Board.BOARD_SIZE:
@@ -94,9 +88,7 @@ class Timeline:
 
                 s += midstring
             else:
-                s += (" " * interspace) + (" " * interspace).join(
-                    [str_board[row] for str_board in str_boards]
-                )
+                s += (" " * interspace) + (" " * interspace).join([str_board[row] for str_board in str_boards])
             s += "\n"
         return s
 

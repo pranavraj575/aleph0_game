@@ -45,27 +45,15 @@ class Multiverse:
     def clone(self):
         return Multiverse(
             main_timeline=self.main_timeline.clone(),
-            up_list=[
-                None if timeline is None else timeline.clone()
-                for timeline in self.up_list
-            ],
-            down_list=[
-                None if timeline is None else timeline.clone()
-                for timeline in self.down_list
-            ],
+            up_list=[None if timeline is None else timeline.clone() for timeline in self.up_list],
+            down_list=[None if timeline is None else timeline.clone() for timeline in self.down_list],
         )
 
     def flipped(self):
         return Multiverse(
             main_timeline=self.main_timeline.flipped(),
-            up_list=[
-                None if timeline is None else timeline.flipped()
-                for timeline in self.down_list
-            ],
-            down_list=[
-                None if timeline is None else timeline.flipped()
-                for timeline in self.up_list
-            ],
+            up_list=[None if timeline is None else timeline.flipped() for timeline in self.down_list],
+            down_list=[None if timeline is None else timeline.flipped() for timeline in self.up_list],
         )
 
     def get_board(self, td_idx):
