@@ -302,11 +302,6 @@ class Chess5d(Game):
                 ident = self.PASSANTABLE_PAWN
         return ident * torch.sign(piece)
 
-    def agent_observe(self, state):
-        # TODO: potentially flip board for opponent
-        #  also maybe denote what piece was removed better (instead of just giving index)
-        return state.board, torch.concatenate((torch.tensor([state.piece_held]), state.held_piece_origin))
-
     def action_mask(self, state):
         if state.piece_held != 0:
             action_mask = torch.zeros_like(state.board, dtype=torch.bool)
@@ -332,9 +327,31 @@ class Chess5d(Game):
                 piece_idx = torch.tensor(piece_idx)
                 if next(self._piece_possible_moves(state.board, piece_idx.clone()), None) is None:
                     action_mask[*piece_idx] = False
-
-        special_moves = torch.ones(1, dtype=torch.bool)
+        if (state.piece_held != 0) or (state.player == self.player_at(self.get_present(board=state.board, center_timeline=state.center_timeline))):
+            # player cannot end turn, since they are holding a piece, or have not moved on a board in the 'present'
+            special_moves = torch.zeros(1, dtype=torch.bool)
+        else:
+            # can only end turn if no piece is held, and it is the opponent's turn in the 'present' time
+            special_moves = torch.ones(1, dtype=torch.bool)
         return special_moves, action_mask
+
+    def get_present(self, board, center_timeline):
+        """
+        returns present time of a board
+            this is the earliest end of an active timeline
+        :return:
+        """
+        num_dims = board.shape[1]
+        num_active_branches = min(center_timeline, num_dims - center_timeline) + 1
+        # shaped (num timesteps, num_dims), True where there is a board
+        active_mask = torch.not_equal(
+            board[:, max(0, center_timeline - num_active_branches) : min(center_timeline + num_active_branches + 1, num_dims), 0, 0], self.BLOCKED
+        )
+
+        # shaped (num timesteps, num_dims), timestep index where there is a board, 0 otherwise
+        active_indices = active_mask * torch.arange(len(active_mask), dtype=torch.int).unsqueeze(1)
+
+        return torch.min(torch.max(active_indices, dim=0).values)
 
     def _piece_possible_moves(self, board, piece_idx):
         piece = board[*piece_idx]
@@ -441,6 +458,11 @@ class Chess5d(Game):
                         yield pos
                     else:
                         continue
+
+    def agent_observe(self, state):
+        # TODO: potentially flip board for opponent
+        #  also maybe denote what piece was removed better (instead of just giving index)
+        return state.board, torch.concatenate((torch.tensor([state.piece_held]), state.held_piece_origin))
 
     def critic_observe(self, state):
         return state.board, torch.tensor([state.piece_held])
@@ -594,17 +616,4 @@ if __name__ == "__main__":
 
     c.render(canvas, b)
     c.render_action_mask(canvas, b)
-    c.close_canvas(canvas)
-
-    c = Chess2d()
-    canvas = c.get_canvas()
-    b = c.init_state()
-
-    b = c.step_weak_type(b, [1, 0])[0]
-    b = c.step_weak_type(b, [3, 0])[0]
-
-    b = c.step_weak_type(b, [6, 3])[0]
-    b = c.step_weak_type(b, [4, 3])[0]
-    c.render(canvas, b)
-    print(c.action_mask(b))
     c.close_canvas(canvas)
