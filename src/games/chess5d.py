@@ -201,6 +201,7 @@ class Chess5d(Game):
 
             captured_id = torch.abs(capture)
             # TODO: set containment faster?
+            # TODO: stalemate check; maybe keep track of board from last player's move in state
             if captured_id in (
                 self.KING,
                 self.UNMOVED_KING,
@@ -327,6 +328,7 @@ class Chess5d(Game):
                 piece_idx = torch.tensor(piece_idx)
                 if next(self._piece_possible_moves(state.board, piece_idx.clone()), None) is None:
                     action_mask[*piece_idx] = False
+        # TODO: what if stalemate? maybe add special move in this case
         if (state.piece_held != 0) or (state.player == self.player_at(self.get_present(board=state.board, center_timeline=state.center_timeline))):
             # player cannot end turn, since they are holding a piece, or have not moved on a board in the 'present'
             special_moves = torch.zeros(1, dtype=torch.bool)
