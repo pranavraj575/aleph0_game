@@ -160,12 +160,8 @@ class Chess5d(Game):
                         rook_place_j = int((j2 + j1) / 2)
 
                         new_frame[i2, rook_pick_j] = self.EMPTY
-                        new_frame[i2, rook_place_j] = self.moved_piece(
-                            piece=new_frame[i2, rook_pick_j],
-                            pick=torch.tensor((time2, dim2, i2, rook_pick_j)),
-                            place=torch.tensor((time2, dim2, i2, rook_place_j)),
-                            castled=True,
-                        )
+                        # TODO: is there a better way to set player than multiplication here
+                        new_frame[i2, rook_place_j] = self.GHOST_ROOK * state.player
                 if ident == self.PAWN:  # check for en passant
                     if abs(i2 - i1) == 1 and abs(j2 - j1) == 1:  # captured in xy coords
                         if (
@@ -213,7 +209,13 @@ class Chess5d(Game):
                 )
 
             captured_id = torch.abs(capture)
-            if captured_id == self.KING or captured_id == self.UNMOVED_KING:
+            # TODO: set containment faster?
+            if captured_id in (
+                self.KING,
+                self.UNMOVED_KING,
+                self.GHOST_KING,
+                self.GHOST_ROOK,
+            ):
                 term = True
                 rwd = torch.tensor([state.player, -state.player])
             else:
@@ -300,7 +302,7 @@ class Chess5d(Game):
         frame[ghost_rook] = self.ROOK
         return frame
 
-    def moved_piece(self, piece, pick, place, castled=False):
+    def moved_piece(self, piece, pick, place):
         ident = torch.abs(piece)
         # if unmoved (pawn, king, rook), it is now moved
         if self.LOWEST_UNMOVED <= ident and ident <= self.HIGHEST_UNMOVED:
@@ -312,8 +314,6 @@ class Chess5d(Game):
             if abs(pick[2] - place[2]) == 2:
                 # pawn moved two spaces, can be captured by enpassant
                 ident = self.PASSANTABLE_PAWN
-        if castled and ident == self.ROOK:
-            ident = self.GHOST_ROOK
         return ident * torch.sign(piece)
 
     def agent_observe(self, state):
@@ -550,6 +550,8 @@ class Chess5d(Game):
                 ident_str = "R"
             case self.UNMOVED_ROOK:
                 ident_str = "R"
+            case self.GHOST_ROOK:
+                ident_str = "R"
             case self.KNIGHT:
                 ident_str = "N"
             case self.BISHOP:
@@ -578,7 +580,6 @@ class Chess2d(Chess5d):
         return board_action_mask[-1, 0]
 
     def step(self, state, action):
-        assert self.is_valid(state, action)
         new_action = (
             torch.tensor(-1),
             torch.concatenate((torch.tensor((len(state.board) - 1, 0)), action)),
