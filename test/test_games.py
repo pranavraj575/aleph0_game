@@ -22,18 +22,19 @@ all_games = small_games + [
 
 def sample_from_action_mask(game: Game, action_mask):
     if game.has_special_actions():
-        special_mask, board_mask = action_mask
-        assert special_mask.dtype == torch.bool
+        board_mask, special_mask = action_mask
         assert board_mask.dtype == torch.bool
+        assert special_mask.dtype == torch.bool
 
+        # easier if swapped here, since we can test action < len(special_mask)
         combined_mask = torch.concat((special_mask, board_mask.flatten()))
         action = torch.multinomial(combined_mask.to(torch.float), 1, True)
         if action < len(special_mask):
-            return (action, -torch.ones(len(board_mask.shape), dtype=torch.int))
+            return (-torch.ones(len(board_mask.shape), dtype=torch.int), action)
         else:
             return (
-                -1,
                 torch.cat(torch.unravel_index(action - len(special_mask), board_mask.shape)),
+                torch.tensor(-1),
             )
     else:
         # action mask is a tensor

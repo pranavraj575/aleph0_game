@@ -19,14 +19,14 @@ class F_MNK(MNK):
 
     def step(self, state, action):
         board, player = state
-        special_action, action = action
+        board_action, special_action = action
         if special_action == 0:
             # player resigns (if player 1 resigns, rewards are [-1,1], if player -1 does, rwds are [1,-1])
             rewards = torch.tensor([-player, player])
             return state, rewards, True, dict()
 
         new_board = board.clone()
-        new_board[*action] = player
+        new_board[*board_action] = player
         game_won = self.check_winner(torch.eq(new_board, player))
         game_won = float(game_won)
         # if no one wan, rewards are [0,0]
@@ -40,4 +40,4 @@ class F_MNK(MNK):
     def action_mask(self, state):
         board_action_mask = super().action_mask(state)
         # allow an extra action, which will lose the game on the spot
-        return (torch.ones(1, dtype=torch.bool), board_action_mask)
+        return (board_action_mask, torch.ones(1, dtype=torch.bool))

@@ -24,8 +24,8 @@ class Game:
         casts action to tensor then returns step
         """
         if self.has_special_actions():
-            special_a, board_a = action
-            return self.step(state, (torch.tensor(special_a), torch.tensor(board_a)))
+            board_a, special_a = action
+            return self.step(state, (torch.tensor(board_a), torch.tensor(special_a)))
         else:
             return self.step(state, torch.tensor(action))
 
@@ -84,8 +84,8 @@ class Game:
 
     def is_valid(self, state, action):
         if self.has_special_actions():
-            special_action, board_action = action
-            special_mask, board_mask = self.action_mask(state)
+            board_action, special_action = action
+            board_mask, special_mask = self.action_mask(state)
             if special_action >= 0:
                 return special_mask[special_action]
             else:

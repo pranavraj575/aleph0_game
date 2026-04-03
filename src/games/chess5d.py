@@ -100,9 +100,16 @@ class Chess5d(Game):
     def player(self, state):
         return state.player
 
-    def step(self, state, action):
+    def agent_observe(self, state):
+        # TODO: potentially flip board for opponent
+        #  also maybe denote what piece was removed better (instead of just giving index)
+        return state.board, torch.concatenate((torch.tensor([state.piece_held]), state.held_piece_origin))
 
-        special_action, board_action = action
+    def critic_observe(self, state):
+        return state.board, torch.tensor([state.piece_held])
+
+    def step(self, state, action):
+        board_action, special_action = action
         if special_action == 0:
             # player resigns (if player 1 resigns, rewards are [-1,1], if player -1 does, rwds are [1,-1])
             state = State(
@@ -224,6 +231,44 @@ class Chess5d(Game):
                 dict(),
             )
 
+    def action_mask(self, state):
+        if state.piece_held != 0:
+            action_mask = torch.zeros_like(state.board, dtype=torch.bool)
+            for idx in self._piece_possible_moves(state.board, state.held_piece_origin):
+                action_mask[*idx] = True
+        else:
+            player_pieces = torch.logical_and(
+                torch.eq(torch.sign(state.board), state.player),
+                torch.le(state.board, self.LARGEST_PIECE),
+            )
+            p0 = (state.player + 1) // 2
+            players_turn = (torch.arange(len(state.board)) + p0) % 2
+
+            # get 'leaves', which are the last board in a timeline
+            #  either last timestep, or all boards after are BLOCKED
+            leaves = torch.zeros_like(state.board, dtype=torch.bool)
+            leaves[-1] = 1
+            leaves[:-1] = torch.eq(state.board[1:], self.BLOCKED)
+
+            action_mask = torch.logical_and(leaves, players_turn.reshape(-1, 1, 1, 1))
+            action_mask = torch.logical_and(action_mask, player_pieces)
+            for piece_idx in zip(*torch.where(action_mask)):
+                piece_idx = torch.tensor(piece_idx)
+                if next(self._piece_possible_moves(state.board, piece_idx.clone()), None) is None:
+                    action_mask[*piece_idx] = False
+        # TODO: what if stalemate? maybe add special move in this case
+        if (state.piece_held != 0) or (state.player == self.player_at(self.get_present(board=state.board, center_timeline=state.center_timeline))):
+            # player cannot end turn, since they are holding a piece, or have not moved on a board in the 'present'
+            special_moves = torch.zeros(1, dtype=torch.bool)
+        else:
+            # can only end turn if no piece is held, and it is the opponent's turn in the 'present' time
+            special_moves = torch.ones(1, dtype=torch.bool)
+        return action_mask, special_moves
+
+    ###
+    # RENDERING
+    ###
+
     def mutate_add_child_frame(self, board, center_timeline, frame, td_idx):
         """
         adds child to the frame specified by td_idx
@@ -302,40 +347,6 @@ class Chess5d(Game):
                 # pawn moved two spaces, can be captured by enpassant
                 ident = self.PASSANTABLE_PAWN
         return ident * torch.sign(piece)
-
-    def action_mask(self, state):
-        if state.piece_held != 0:
-            action_mask = torch.zeros_like(state.board, dtype=torch.bool)
-            for idx in self._piece_possible_moves(state.board, state.held_piece_origin):
-                action_mask[*idx] = True
-        else:
-            player_pieces = torch.logical_and(
-                torch.eq(torch.sign(state.board), state.player),
-                torch.le(state.board, self.LARGEST_PIECE),
-            )
-            p0 = (state.player + 1) // 2
-            players_turn = (torch.arange(len(state.board)) + p0) % 2
-
-            # get 'leaves', which are the last board in a timeline
-            #  either last timestep, or all boards after are BLOCKED
-            leaves = torch.zeros_like(state.board, dtype=torch.bool)
-            leaves[-1] = 1
-            leaves[:-1] = torch.eq(state.board[1:], self.BLOCKED)
-
-            action_mask = torch.logical_and(leaves, players_turn.reshape(-1, 1, 1, 1))
-            action_mask = torch.logical_and(action_mask, player_pieces)
-            for piece_idx in zip(*torch.where(action_mask)):
-                piece_idx = torch.tensor(piece_idx)
-                if next(self._piece_possible_moves(state.board, piece_idx.clone()), None) is None:
-                    action_mask[*piece_idx] = False
-        # TODO: what if stalemate? maybe add special move in this case
-        if (state.piece_held != 0) or (state.player == self.player_at(self.get_present(board=state.board, center_timeline=state.center_timeline))):
-            # player cannot end turn, since they are holding a piece, or have not moved on a board in the 'present'
-            special_moves = torch.zeros(1, dtype=torch.bool)
-        else:
-            # can only end turn if no piece is held, and it is the opponent's turn in the 'present' time
-            special_moves = torch.ones(1, dtype=torch.bool)
-        return special_moves, action_mask
 
     def get_present(self, board, center_timeline):
         """
@@ -461,33 +472,9 @@ class Chess5d(Game):
                     else:
                         continue
 
-    def agent_observe(self, state):
-        # TODO: potentially flip board for opponent
-        #  also maybe denote what piece was removed better (instead of just giving index)
-        return state.board, torch.concatenate((torch.tensor([state.piece_held]), state.held_piece_origin))
-
-    def critic_observe(self, state):
-        return state.board, torch.tensor([state.piece_held])
-
     ###
     # RENDERING
     ###
-    def render_action_mask(self, canvas, state):
-        """
-        debug method for printing out action mask
-        """
-        special_mask, board_mask = self.action_mask(state)
-        self.render(
-            canvas,
-            State(
-                board=board_mask.to(torch.int),
-                player=state.player,
-                center_timeline=state.center_timeline,
-                piece_held=state.piece_held,
-                held_piece_origin=state.held_piece_origin,
-            ),
-        )
-        print("special_actions:", special_mask.numpy())
 
     def render(self, canvas, state):
         s = self.get_game_str(state)
@@ -542,6 +529,23 @@ class Chess5d(Game):
         else:
             return ident_str
 
+    def render_action_mask(self, canvas, state):
+        """
+        debug method for printing out action mask
+        """
+        board_mask, special_mask = self.action_mask(state)
+        self.render(
+            canvas,
+            State(
+                board=board_mask.to(torch.int),
+                player=state.player,
+                center_timeline=state.center_timeline,
+                piece_held=state.piece_held,
+                held_piece_origin=state.held_piece_origin,
+            ),
+        )
+        print("special_actions:", special_mask.numpy())
+
 
 class Chess2d(Chess5d):
     def has_special_actions(self):
@@ -553,18 +557,18 @@ class Chess2d(Chess5d):
                 yield idx
 
     def action_mask(self, state):
-        special_action_mask, board_action_mask = super().action_mask(state)
+        board_action_mask, special_action_mask = super().action_mask(state)
         return board_action_mask[-1, 0]
 
     def step(self, state, action):
         new_action = (
-            torch.tensor(-1),
             torch.concatenate((torch.tensor((len(state.board) - 1, 0)), action)),
+            torch.tensor(-1),
         )
         new_state, rewards, terminal, aux = super().step(state, new_action)
         # if we have just placed a piece, it is oppoenents turn
         if (not terminal) and (new_state.piece_held == 0):
-            new_state, rewards, terminal, auxp = super().step(new_state, (torch.tensor(0), -torch.ones(4, dtype=torch.int)))
+            new_state, rewards, terminal, auxp = super().step(new_state, (-torch.ones(4, dtype=torch.int), torch.tensor(0)))
             return new_state, rewards, terminal, aux | auxp
         return new_state, rewards, terminal, aux
 
