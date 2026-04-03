@@ -7,65 +7,87 @@ from src.games import Chess2d, Chess5d
 en_passant_tests = (
     [
         [
+            # I4
             [1, i],
-            [3, i],  # I4
-            [6, i],
-            [5, i],  # I6
             [3, i],
-            [4, i],  # I5
-            [6, i + 1],
-            [4, i + 1],  # (I+1)5
+            # I6
+            [6, i],
+            [5, i],
+            # I5
+            [3, i],
             [4, i],
-            [5, i + 1],  # x(I+1)6
+            # (I+1)5
+            [6, i + 1],
+            [4, i + 1],
+            # x(I+1)6
+            [4, i],
+            [5, i + 1],
         ]
         for i in range(7)
     ]
     + [
         [
+            # I4
             [1, i],
-            [3, i],  # I4
-            [6, i],
-            [5, i],  # I6
             [3, i],
-            [4, i],  # I5
-            [6, i - 1],
-            [4, i - 1],  # (I-1)5
+            # I6
+            [6, i],
+            [5, i],
+            # I5
+            [3, i],
             [4, i],
-            [5, i - 1],  # x(I-1)6
+            # (I-1)5
+            [6, i - 1],
+            [4, i - 1],
+            # x(I-1)6
+            [4, i],
+            [5, i - 1],
         ]
         for i in range(1, 8)
     ]
     + [
         [
+            # NA3
             [0, 1],
-            [2, 0],  # NA3
-            [6, i],
-            [4, i],  # I5
             [2, 0],
-            [0, 1],  # NB1
+            # I5
+            [6, i],
             [4, i],
-            [3, i],  # I4
-            [1, i + 1],
-            [3, i + 1],  # (I+1)4
+            # NB1
+            [2, 0],
+            [0, 1],
+            # I4
+            [4, i],
             [3, i],
-            [2, i + 1],  # x(I+1)5
+            # (I+1)4
+            [1, i + 1],
+            [3, i + 1],
+            # x(I+1)5
+            [3, i],
+            [2, i + 1],
         ]
         for i in range(7)
     ]
     + [
         [
+            # NA3
             [0, 1],
-            [2, 0],  # NA3
-            [6, i],
-            [4, i],  # I5
             [2, 0],
-            [0, 1],  # NB1
+            # I5
+            [6, i],
             [4, i],
-            [3, i],  # I4
-            [1, i - 1],
-            [3, i - 1],  # (I-1)4
+            # NB1
+            [2, 0],
+            [0, 1],
+            # I4
+            [4, i],
             [3, i],
-            [2, i - 1],  # x(I-1)5
+            # (I-1)4
+            [1, i - 1],
+            [3, i - 1],
+            # x(I-1)5
+            [3, i],
+            [2, i - 1],
         ]
         for i in range(1, 8)
     ]
@@ -98,16 +120,21 @@ def test_en_passant():
     game = Chess2d()
     s = game.init_state()
     actions = [
+        # A4
         [1, 0],
-        [3, 0],  # A4
-        [6, 0],
-        [5, 0],  # A6
         [3, 0],
-        [4, 0],  # A5
-        [6, 1],
-        [4, 1],  # B5
+        # A6
+        [6, 0],
+        [5, 0],
+        # A5
+        [3, 0],
         [4, 0],
-        [5, 1],  # xB6
+        # B5
+        [6, 1],
+        [4, 1],
+        # xB6
+        [4, 0],
+        [5, 1],
     ]
     s, _, _ = apply_actions(game, s, actions)
 
@@ -121,30 +148,42 @@ def test_castling():
     game = Chess2d()
     s = game.init_state()
     actions = [
+        # E4
         [1, 4],
-        [3, 4],  # E4
+        [3, 4],
+        # E5
         [6, 4],
-        [4, 4],  # E5
+        [4, 4],
+        # NF3
         [0, 6],
-        [2, 5],  # NF3
+        [2, 5],
+        # NC6
         [7, 1],
-        [5, 2],  # NC6
+        [5, 2],
+        # BB5
         [0, 5],
-        [4, 1],  # BB5
-        [7, 3],
-        [6, 4],  # QE7
-        [0, 4],
-        [0, 6],  # O-O
-        [6, 1],
-        [5, 1],  # B6
-        [0, 5],
-        [0, 4],  # RE1
-        [7, 2],
-        [5, 0],  # BA3
         [4, 1],
-        [3, 2],  # BC4
+        # QE7
+        [7, 3],
+        [6, 4],
+        # O-O
+        [0, 4],
+        [0, 6],
+        # B6
+        [6, 1],
+        [5, 1],
+        # RE1
+        [0, 5],
+        [0, 4],
+        # BA3
+        [7, 2],
+        [5, 0],
+        # BC4
+        [4, 1],
+        [3, 2],
+        # O-O-O
         [7, 4],
-        [7, 2],  # O-O-O
+        [7, 2],
     ]
     apply_actions(game, s, actions, render=render)
 
@@ -152,12 +191,15 @@ def test_castling():
     #  this leads to castling being illegal
     #  in our representation, the bishop can capture a 'ghost' on E8, and win the game
     loss_actions = actions[:-4] + [
+        # BXA3
         [4, 1],
-        [5, 0],  # BXA3
-        [7, 4],
-        [7, 2],  # O-O-O (illegal because of bishop on A3)
         [5, 0],
-        [7, 2],  # BE8 (captures king)
+        # O-O-O (illegal because of bishop on A3)
+        [7, 4],
+        [7, 2],
+        # BE8 (captures king)
+        [5, 0],
+        [7, 2],
     ]
 
     _, rwd, term = apply_actions(game, s, loss_actions, render=render)
@@ -170,21 +212,29 @@ def test_castling_OO_failure():
     game = Chess2d()
     s = game.init_state()
     actions = [
+        # E4
         [1, 4],
-        [3, 4],  # E4
+        [3, 4],
+        # E5
         [6, 4],
-        [4, 4],  # E5
+        [4, 4],
+        # NH3
         [0, 6],
-        [2, 7],  # NH3
+        [2, 7],
+        # QF6
         [7, 3],
-        [5, 5],  # QF6
-        [0, 5],
-        [4, 1],  # BB5
         [5, 5],
-        [1, 5],  # QxF2
+        # BB5
+        [0, 5],
+        [4, 1],
+        # QxF2
+        [5, 5],
+        [1, 5],
+        # O-O (illegal because of queen
         [0, 4],
-        [0, 6],  # O-O (illegal because of queen
-        [1, 5],  # move queen
+        [0, 6],
+        # move queen
+        [1, 5],
     ]
     temp_s, _, _ = apply_actions(game, s, actions, render=render)
     for capture_squares in [[0, 4], [0, 5], [0, 6]]:
@@ -201,29 +251,41 @@ def test_castling_OOO_failure():
     s = game.init_state()
 
     actions = [
+        # E4
         [1, 4],
-        [3, 4],  # E4
+        [3, 4],
+        # E5
         [6, 4],
-        [4, 4],  # E5
+        [4, 4],
+        # NA3
         [0, 1],
-        [2, 0],  # NA3
+        [2, 0],
+        # QE7
         [7, 3],
-        [6, 4],  # QE7
-        [0, 3],
-        [2, 5],  # QF3
         [6, 4],
-        [5, 3],  # QD6
-        [1, 1],
-        [2, 1],  # B3
-        [7, 1],
-        [5, 2],  # NC6
-        [0, 2],
-        [1, 1],  # BB2
+        # QF3
+        [0, 3],
+        [2, 5],
+        # QD6
+        [6, 4],
         [5, 3],
-        [1, 3],  # QXD2
+        # B3
+        [1, 1],
+        [2, 1],
+        # NC6
+        [7, 1],
+        [5, 2],
+        # BB2
+        [0, 2],
+        [1, 1],
+        # QXD2
+        [5, 3],
+        [1, 3],
+        # O-O-O (illegal because of Q on D2)
         [0, 4],
-        [0, 2],  # O-O-O (illegal because of Q on D2)
-        [1, 3],  # move queen
+        [0, 2],
+        # move queen
+        [1, 3],
     ]
     temp_s, _, _ = apply_actions(game, s, actions, render=render)
     for capture_squares in [[0, 4], [0, 3], [0, 2]]:
