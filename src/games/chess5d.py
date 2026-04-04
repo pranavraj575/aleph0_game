@@ -547,6 +547,20 @@ class Chess5d(Game):
         start_board = torch.where(mask.reshape(*mask.shape, 1, 1), start_board, self.BLOCKED)
         return start_board, center_timeline
 
+    def undo_player_turn(self, state: State):
+        """
+        undoes any moves the player made in current turn
+        :param state:
+        :return: state before player made any moves
+        """
+        start_board, center_timeline = self.start_turn_board_and_center(state)
+        return State(
+            board=start_board,
+            player=state.player,
+            center_timeline=center_timeline,
+            start_turn_board_mask=torch.not_equal(start_board[:, :, 0, 0], self.BLOCKED),
+        )
+
     ###
     # RENDERING
     ###
