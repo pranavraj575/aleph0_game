@@ -19,7 +19,7 @@ class State:
     # '0' timeline
     center_timeline: int
     # we split the game into a pick piece and place piece phase, in the second case, these tracks which piece is picked
-    piece_held: int = 0
+    piece_held: torch.Tensor = torch.tensor(0)
     held_piece_origin: torch.Tensor = -torch.ones(4, dtype=torch.int)
 
 
@@ -153,130 +153,129 @@ class Chess5d(Game):
                 dict(),
             )
         else:
-            new_board = state.board.clone()
-            new_start_turn_board_mask = state.start_turn_board_mask.clone()
-            new_center_timeline = state.center_timeline
+            return self.make_move(state, state.held_piece_origin, board_action)
 
-            time1, dim1, i1, j1 = state.held_piece_origin
-            time2, dim2, i2, j2 = board_action
-            if (time1, dim1) == (time2, dim2):
-                # Special case, where the move begins and ends on same board
-                capture = new_board[*board_action].clone()
-                new_frame = new_board[time1, dim1].clone()
-                new_frame = self.mutate_remove_temporary_states(frame=new_frame)
-                new_frame[i1, j1] = self.EMPTY
-                new_frame[i2, j2] = self.moved_piece(
-                    piece=state.piece_held,
-                    pick=state.held_piece_origin,
-                    place=board_action,
-                )
-                ident = torch.abs(state.piece_held)
-                if ident == self.UNMOVED_KING:  # check for castling
-                    diff = j2 - j1
-                    if torch.abs(diff) > 1:  # we have castled, move rook as well
-                        if j2 > j1:
-                            new_frame[i1, j1:j2] = self.GHOST_KING * state.player
-                        else:
-                            new_frame[i1, j2 + 1 : j1 + 1] = self.GHOST_KING * state.player
-                        rook_pick_j = 0 if diff < 0 else self.BOARD_SIZE - 1
-                        rook_place_j = int((j2 + j1) / 2)
+    def make_move(self, state: State, pick_idx, place_idx):
+        new_board = state.board.clone()
+        new_start_turn_board_mask = state.start_turn_board_mask.clone()
+        new_center_timeline = state.center_timeline
 
-                        new_frame[i2, rook_pick_j] = self.EMPTY
-                        # TODO: is there a better way to set player than multiplication here
-                        new_frame[i2, rook_place_j] = self.GHOST_ROOK * state.player
-                if ident == self.PAWN:  # check for en passant
-                    if (abs(i2 - i1) == 1) and (abs(j2 - j1) == 1):  # captured in xy coords
-                        if torch.abs(new_board[time1, dim1, i1, j2]) == self.PASSANTABLE_PAWN:
-                            capture = new_frame[i1, j2].clone()
-                            new_frame[i1, j2] = self.EMPTY
-                new_board, new_center_timeline = self.mutate_add_child_frame(
-                    board=new_board,
-                    center_timeline=new_center_timeline,
-                    frame=new_frame,
-                    td_idx=(time2, dim2),
-                )
-                # no dimensions can be added, so only thing that can happen is board increased in size
-                #  in that case, this extra dimension is not a part of the last player's turn, so add zeros to board mask
-                if len(new_board) > len(new_start_turn_board_mask):
-                    new_start_turn_board_mask = torch.concatenate(
-                        (new_start_turn_board_mask, torch.zeros((1, new_start_turn_board_mask.shape[1]), dtype=torch.bool)), dim=0
-                    )
-            else:
-                new_frame_pick = new_board[time1, dim1].clone()
-                new_frame_pick[i1, j1] = self.EMPTY
-                # no pieces are enpassantable on this board,
-                #  since any pieces that were enpassantable have had a turn pass
-                #  and the move is not pawn up 2
-                new_frame_pick = self.mutate_remove_temporary_states(frame=new_frame_pick)
-                new_board, new_center_timeline = self.mutate_add_child_frame(
-                    board=new_board,
-                    center_timeline=new_center_timeline,
-                    frame=new_frame_pick,
-                    td_idx=(time1, dim1),
-                )
-                # again, no dimensions can be added by previous line, only possible for an extra timestep
-                if len(new_board) > len(new_start_turn_board_mask):
-                    new_start_turn_board_mask = torch.concatenate(
-                        (new_start_turn_board_mask, torch.zeros((1, new_start_turn_board_mask.shape[1]), dtype=torch.bool)), dim=0
-                    )
-
-                new_frame_place = new_board[time2, dim2].clone()
-                capture = new_board[*board_action].clone()
-                new_frame_place = self.mutate_remove_temporary_states(frame=new_frame_place)
-                new_frame_place[i2, j2] = self.moved_piece(
-                    piece=state.piece_held,
-                    pick=state.held_piece_origin,
-                    place=board_action,
-                )
-                new_board, new_center_timeline = self.mutate_add_child_frame(
-                    board=new_board,
-                    center_timeline=new_center_timeline,
-                    frame=new_frame_place,
-                    td_idx=(time2, dim2),
-                )
-
-                if len(new_board) > len(new_start_turn_board_mask):
-                    new_start_turn_board_mask = torch.concatenate(
-                        (new_start_turn_board_mask, torch.zeros((1, new_start_turn_board_mask.shape[1]), dtype=torch.bool)), dim=0
-                    )
-                if new_board.shape[1] > new_start_turn_board_mask.shape[1]:
-                    # have to decide whether the start or end of the dimension list was appended to
-                    if new_center_timeline == state.center_timeline:
-                        # end was added to, since center did not change index
-                        new_start_turn_board_mask = torch.concatenate(
-                            (new_start_turn_board_mask, torch.zeros((new_start_turn_board_mask.shape[0], 1), dtype=torch.bool)), dim=1
-                        )
-                    else:
-                        assert new_center_timeline == state.center_timeline + 1
-                        new_start_turn_board_mask = torch.concatenate(
-                            (torch.zeros((new_start_turn_board_mask.shape[0], 1), dtype=torch.bool), new_start_turn_board_mask), dim=1
-                        )
-
-            captured_id = torch.abs(capture)
-            # TODO: set containment faster?
-            # TODO: stalemate check; maybe keep track of board from last player's move in state
-            if captured_id in (
-                self.KING,
-                self.UNMOVED_KING,
-                self.GHOST_KING,
-                self.GHOST_ROOK,
-            ):
-                term = True
-                rwd = torch.tensor([state.player, -state.player])
-            else:
-                term = False
-                rwd = torch.zeros(2)
-            return (
-                State(
-                    board=new_board,
-                    player=state.player,
-                    center_timeline=new_center_timeline,
-                    start_turn_board_mask=new_start_turn_board_mask,
-                ),
-                rwd,
-                term,
-                dict(),
+        time1, dim1, i1, j1 = pick_idx
+        time2, dim2, i2, j2 = place_idx
+        if (time1, dim1) == (time2, dim2):
+            # Special case, where the move begins and ends on same board
+            capture = new_board[*place_idx].clone()
+            new_frame = new_board[time1, dim1].clone()
+            new_frame = self.mutate_remove_temporary_states(frame=new_frame)
+            new_frame[i1, j1] = self.EMPTY
+            new_frame[i2, j2] = self.moved_piece(
+                piece=state.piece_held,
+                pick=state.held_piece_origin,
+                place=place_idx,
             )
+            ident = torch.abs(state.piece_held)
+            if ident == self.UNMOVED_KING:  # check for castling
+                diff = j2 - j1
+                if torch.abs(diff) > 1:  # we have castled, move rook as well
+                    if j2 > j1:
+                        new_frame[i1, j1:j2] = self.GHOST_KING * state.player
+                    else:
+                        new_frame[i1, j2 + 1 : j1 + 1] = self.GHOST_KING * state.player
+                    rook_pick_j = 0 if diff < 0 else self.BOARD_SIZE - 1
+                    rook_place_j = int((j2 + j1) / 2)
+
+                    new_frame[i2, rook_pick_j] = self.EMPTY
+                    # TODO: is there a better way to set player than multiplication here
+                    new_frame[i2, rook_place_j] = self.GHOST_ROOK * state.player
+            if ident == self.PAWN:  # check for en passant
+                if (abs(i2 - i1) == 1) and (abs(j2 - j1) == 1):  # captured in xy coords
+                    if torch.abs(new_board[time1, dim1, i1, j2]) == self.PASSANTABLE_PAWN:
+                        capture = new_frame[i1, j2].clone()
+                        new_frame[i1, j2] = self.EMPTY
+            new_board, new_center_timeline = self.mutate_add_child_frame(
+                board=new_board,
+                center_timeline=new_center_timeline,
+                frame=new_frame,
+                td_idx=(time2, dim2),
+            )
+            # no dimensions can be added, so only thing that can happen is board increased in size
+            #  in that case, this extra dimension is not a part of the last player's turn, so add zeros to board mask
+            if len(new_board) > len(new_start_turn_board_mask):
+                new_start_turn_board_mask = torch.concatenate(
+                    (new_start_turn_board_mask, torch.zeros((1, new_start_turn_board_mask.shape[1]), dtype=torch.bool)), dim=0
+                )
+        else:
+            new_frame_pick = new_board[time1, dim1].clone()
+            new_frame_pick[i1, j1] = self.EMPTY
+            # no pieces are enpassantable on this board,
+            #  since any pieces that were enpassantable have had a turn pass
+            #  and the move is not pawn up 2
+            new_frame_pick = self.mutate_remove_temporary_states(frame=new_frame_pick)
+            new_board, new_center_timeline = self.mutate_add_child_frame(
+                board=new_board,
+                center_timeline=new_center_timeline,
+                frame=new_frame_pick,
+                td_idx=(time1, dim1),
+            )
+            # again, no dimensions can be added by previous line, only possible for an extra timestep
+            if len(new_board) > len(new_start_turn_board_mask):
+                new_start_turn_board_mask = torch.concatenate(
+                    (new_start_turn_board_mask, torch.zeros((1, new_start_turn_board_mask.shape[1]), dtype=torch.bool)), dim=0
+                )
+
+            new_frame_place = new_board[time2, dim2].clone()
+            capture = new_board[*place_idx].clone()
+            new_frame_place = self.mutate_remove_temporary_states(frame=new_frame_place)
+            new_frame_place[i2, j2] = self.moved_piece(
+                piece=state.piece_held,
+                pick=state.held_piece_origin,
+                place=place_idx,
+            )
+            new_board, new_center_timeline = self.mutate_add_child_frame(
+                board=new_board,
+                center_timeline=new_center_timeline,
+                frame=new_frame_place,
+                td_idx=(time2, dim2),
+            )
+
+            if len(new_board) > len(new_start_turn_board_mask):
+                new_start_turn_board_mask = torch.concatenate(
+                    (new_start_turn_board_mask, torch.zeros((1, new_start_turn_board_mask.shape[1]), dtype=torch.bool)), dim=0
+                )
+            if new_board.shape[1] > new_start_turn_board_mask.shape[1]:
+                # have to decide whether the start or end of the dimension list was appended to
+                if new_center_timeline == state.center_timeline:
+                    # end was added to, since center did not change index
+                    new_start_turn_board_mask = torch.concatenate(
+                        (new_start_turn_board_mask, torch.zeros((new_start_turn_board_mask.shape[0], 1), dtype=torch.bool)), dim=1
+                    )
+                else:
+                    assert new_center_timeline == state.center_timeline + 1
+                    new_start_turn_board_mask = torch.concatenate(
+                        (torch.zeros((new_start_turn_board_mask.shape[0], 1), dtype=torch.bool), new_start_turn_board_mask), dim=1
+                    )
+
+        captured_id = torch.abs(capture)
+        # TODO: set containment faster?
+        # TODO: stalemate check;
+        # for some reason, castling is legal even if skipping square attacked by a piece in a different time/dimension
+        if captured_id in (self.KING, self.UNMOVED_KING) or ((time1, dim1) == (time2, dim2) and captured_id in (self.GHOST_KING, self.GHOST_ROOK)):
+            term = True
+            rwd = torch.tensor([state.player, -state.player])
+        else:
+            term = False
+            rwd = torch.zeros(2)
+        return (
+            State(
+                board=new_board,
+                player=state.player,
+                center_timeline=new_center_timeline,
+                start_turn_board_mask=new_start_turn_board_mask,
+            ),
+            rwd,
+            term,
+            dict(),
+        )
 
     def action_mask(self, state):
         if state.piece_held != 0:
