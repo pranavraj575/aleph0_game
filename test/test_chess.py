@@ -295,17 +295,35 @@ def test_castling_OOO_failure():
 
 
 @pytest.mark.parametrize("seed", list(range(3)))
-def test_chess5d_playthrough(seed, depth=250):
+def test_chess5d_playthrough_and_start_turn_method(seed, depth=250):
     game = Chess5d()
     torch.random.manual_seed(seed)
     s = game.init_state()
     terminal = False
+
+    start_turn_board = s.board
+    start_turn_center = s.center_timeline
+
+    bd, center = game.start_turn_board_and_center(s)
+    assert torch.equal(bd, start_turn_board)
+    assert center == start_turn_center
     while depth >= 0 and not terminal:
         mask = game.action_mask(s)
         action = sample_from_action_mask(game, mask)
         game.agent_observe(s)
         game.critic_observe(s)
         assert game.is_valid(s, action)
-        s, _, terminal, _ = game.step(s, action)
+        s_prime, _, terminal, _ = game.step(s, action)
+        if game.player(s) != game.player(s_prime):
+            # END_TURN was played
+            start_turn_board = s_prime.board
+            start_turn_center = s_prime.center_timeline
+
+        bd, center = game.start_turn_board_and_center(s_prime)
+        assert torch.equal(bd, start_turn_board)
+        assert center == start_turn_center
+
+        s = s_prime
         depth -= 1
+
     game.render(game.get_canvas(), s)
