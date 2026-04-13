@@ -167,6 +167,15 @@ class Chess5d(Game):
 
     def step(self, state, action):
         """
+        calls self._step
+        ._step will always take in (board action, special action), and this allows internal logic to be consistent
+            (aka it always uses (board move, special move))
+        interface with game API can swap to just using board move (in the case of 2d chess)
+        """
+        return self._step(state=state, action=action)
+
+    def _step(self, state, action):
+        """
         does not mutate state
         :param state:
         :param action:
@@ -347,7 +356,16 @@ class Chess5d(Game):
             dict(),
         )
 
-    def action_mask(self, state):
+    def action_mask(self, state: State):
+        """
+        calls self._action_mask
+        ._action_mask will always return (board mask, special mask), and this allows internal logic to be consistent
+
+        in the case of Chess2D, .action_mask only needs to return the board mask.
+        """
+        return self._action_mask(state=state)
+
+    def _action_mask(self, state):
         if state.piece_held != 0:
             action_mask = torch.zeros_like(state.board, dtype=torch.bool)
             for idx in self._piece_possible_moves(state.board, state.held_piece_origin):
@@ -644,7 +662,7 @@ class Chess5d(Game):
         # now filter according to mask
         start_board = torch.where(mask.reshape(*mask.shape, 1, 1), start_board, self.BLOCKED)
         if prev_turn:
-            prev_turn_mask = torch.zeros(1, dtype=torch.bool)
+            prev_turn_mask = torch.zeros_like(start_board[:, :, 0, 0], dtype=torch.bool)
         return start_board, center_timeline, prev_turn_mask
 
     def undo_player_turn(self, state: State, prev_turn=False):
@@ -728,8 +746,8 @@ class Chess5d(Game):
             temp_s = old_state
             for pick_idx, place_idx in turn:
                 recenter = torch.tensor([0, temp_s.center_timeline, 0, 0])
-                temp_s, _, _, _ = self.step(temp_s, (pick_idx + recenter, torch.tensor(-1, dtype=torch.int)))
-                temp_s, _, _, _ = self.step(temp_s, (place_idx + recenter, torch.tensor(-1, dtype=torch.int)))
+                temp_s, _, _, _ = self._step(temp_s, (pick_idx + recenter, torch.tensor(-1, dtype=torch.int)))
+                temp_s, _, _, _ = self._step(temp_s, (place_idx + recenter, torch.tensor(-1, dtype=torch.int)))
             if not self.player_in_check(state=temp_s):
                 return False
         return True
@@ -762,7 +780,7 @@ class Chess5d(Game):
         """
         center_idx = torch.tensor([0, state.center_timeline, 0, 0])
         # assert state.piece_held==0
-        board_action_mask, _ = self.action_mask(state=state)
+        board_action_mask, _ = self._action_mask(state=state)
         present = self.get_present(board=state.board, center_timeline=state.center_timeline)
         # boards with any movable pieces
         source_board_mask = torch.any(board_action_mask, dim=(2, 3))
@@ -925,30 +943,3 @@ class Chess2d(Chess5d):
             s += "\n"
         s += "\n\n"
         return s
-
-
-if __name__ == "__main__":
-    g = Chess5d()
-    c = g.get_canvas()
-    s = g.init_state()
-    for action in [
-        ((0, 0, 1, 4), (-1)),
-        ((0, 0, 3, 4), (-1)),
-        (-torch.ones(4), (0)),
-        ((1, 0, 6, 4), (-1)),
-        ((1, 0, 4, 4), (-1)),
-        (-torch.ones(4), (0)),
-        ((2, 0, 0, 1), (-1)),
-        ((0, 0, 2, 1), (-1)),
-        (-torch.ones(4), (0)),
-        ((1, 0, 7, 3), (-1)),
-        ((3, 1, 6, 4), (-1)),
-        (-torch.ones(4), (0)),
-        # ((2, 0, 2, 1), (-1)),
-        # ((2, 1, 2, 3), (-1)),
-    ]:
-        assert g.is_valid(s, (torch.tensor(action[0]), torch.tensor(action[1])))
-        s, _, _, _ = g.step_weak_type(s, action)
-    g.render(c, s)
-    # g.render_action_mask(c,s)
-    print(list(g.get_all_possible_turns(s)))
