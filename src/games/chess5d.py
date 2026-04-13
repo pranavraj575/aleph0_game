@@ -70,6 +70,19 @@ def DAG_subgraphs_w_at_most_one_outgoing_edge(edge_list: dict, used_sources=None
 
 
 class Chess5d(Game):
+    """
+    implemented 5d chess
+    SIMPLIFICATIONS:
+        game ends upon the capture of a king
+            after player i caputures an opponent king, we do a stalemate check (unless specified tha stalemate is a win)
+            roll back game to player -i's last turn
+            if player -i has no turn that gets them out of check, this is a stalemate, and the game ends in a draw
+            otherwise, player i wins (even if there was a move that got player -i out of check that they did not find)
+        players are allowed to castle despite being in check.
+            However, if player castles, opponent can 'capture' the squares the king moved through, and win the game
+            Thus, this is equivalent to not being able to castle, as doing so loses the game
+    """
+
     BOARD_SIZE = 8
     # reserve a separate index for a blocked board (i.e. board that does not exist yet)
     # this is necessary since knights can jump over blocked boards, but other pieces cannot
@@ -112,11 +125,8 @@ class Chess5d(Game):
 
     def __init__(self, stalemate_is_win=True):
         """
-        implemented 5d chess
-        SIMPLIFICATIONS:
-            players are allowed to castle despite being in check.
-                However, if player castles, opponent can 'capture' the squares the king moved through, and win the game
-                Thus, this is equivalent to not being able to castle, as doing so loses the game
+        :param stalemate_is_win: whether to count stalemate as a win instead of draw
+            this save a ton of computation in large games
         """
         super().__init__()
         self.stalemate_is_win = stalemate_is_win
