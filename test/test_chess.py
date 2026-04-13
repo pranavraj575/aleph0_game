@@ -10,19 +10,19 @@ from src.games.chess5d import DAG_subgraphs_w_at_most_one_outgoing_edge, all_sub
 en_passant_tests = (
     [
         [
-            # I4
+            # i4
             [1, i],
             [3, i],
-            # I6
+            # i6
             [6, i],
             [5, i],
-            # I5
+            # i5
             [3, i],
             [4, i],
-            # (I+1)5
+            # (i+1)5
             [6, i + 1],
             [4, i + 1],
-            # x(I+1)6
+            # x(i+1)6
             [4, i],
             [5, i + 1],
         ]
@@ -30,19 +30,19 @@ en_passant_tests = (
     ]
     + [
         [
-            # I4
+            # i4
             [1, i],
             [3, i],
-            # I6
+            # i6
             [6, i],
             [5, i],
-            # I5
+            # i5
             [3, i],
             [4, i],
-            # (I-1)5
+            # (i-1)5
             [6, i - 1],
             [4, i - 1],
-            # x(I-1)6
+            # x(i-1)6
             [4, i],
             [5, i - 1],
         ]
@@ -50,22 +50,22 @@ en_passant_tests = (
     ]
     + [
         [
-            # NA3
+            # Na3
             [0, 1],
             [2, 0],
-            # I5
+            # i5
             [6, i],
             [4, i],
-            # NB1
+            # Nb1
             [2, 0],
             [0, 1],
-            # I4
+            # i4
             [4, i],
             [3, i],
-            # (I+1)4
+            # (i+1)4
             [1, i + 1],
             [3, i + 1],
-            # x(I+1)5
+            # x(i+1)5
             [3, i],
             [2, i + 1],
         ]
@@ -73,22 +73,22 @@ en_passant_tests = (
     ]
     + [
         [
-            # NA3
+            # Na3
             [0, 1],
             [2, 0],
-            # I5
+            # i5
             [6, i],
             [4, i],
-            # NB1
+            # Nb1
             [2, 0],
             [0, 1],
-            # I4
+            # i4
             [4, i],
             [3, i],
-            # (I-1)4
+            # (i-1)4
             [1, i - 1],
             [3, i - 1],
-            # x(I-1)5
+            # x(i-1)5
             [3, i],
             [2, i - 1],
         ]
@@ -123,19 +123,19 @@ def test_en_passant():
     game = Chess2d()
     s = game.init_state()
     actions = [
-        # A4
+        # a4
         [1, 0],
         [3, 0],
-        # A6
+        # a6
         [6, 0],
         [5, 0],
-        # A5
+        # a5
         [3, 0],
         [4, 0],
-        # B5
+        # b5
         [6, 1],
         [4, 1],
-        # xB6
+        # xb6
         [4, 0],
         [5, 1],
     ]
@@ -151,37 +151,37 @@ def test_castling():
     game = Chess2d()
     s = game.init_state()
     actions = [
-        # E4
+        # e4
         [1, 4],
         [3, 4],
-        # E5
+        # e5
         [6, 4],
         [4, 4],
-        # NF3
+        # Nf3
         [0, 6],
         [2, 5],
-        # NC6
+        # Nc6
         [7, 1],
         [5, 2],
-        # BB5
+        # Bb5
         [0, 5],
         [4, 1],
-        # QE7
+        # Qe7
         [7, 3],
         [6, 4],
         # O-O
         [0, 4],
         [0, 6],
-        # B6
+        # b6
         [6, 1],
         [5, 1],
-        # RE1
+        # Re1
         [0, 5],
         [0, 4],
-        # BA3
+        # Ba3
         [7, 2],
         [5, 0],
-        # BC4
+        # Bc4
         [4, 1],
         [3, 2],
         # O-O-O
@@ -194,13 +194,13 @@ def test_castling():
     #  this leads to castling being illegal
     #  in our representation, the bishop can capture a 'ghost' on E8, and win the game
     loss_actions = actions[:-4] + [
-        # BXA3
+        # BXa3
         [4, 1],
         [5, 0],
         # O-O-O (illegal because of bishop on A3)
         [7, 4],
         [7, 2],
-        # BE8 (captures king)
+        # Be8 (captures king)
         [5, 0],
         [7, 2],
     ]
@@ -215,22 +215,22 @@ def test_castling_OO_failure():
     game = Chess2d()
     s = game.init_state()
     actions = [
-        # E4
+        # e4
         [1, 4],
         [3, 4],
-        # E5
+        # e5
         [6, 4],
         [4, 4],
-        # NH3
+        # Nh3
         [0, 6],
         [2, 7],
-        # QF6
+        # Qf6
         [7, 3],
         [5, 5],
-        # BB5
+        # Bb5
         [0, 5],
         [4, 1],
-        # QxF2
+        # Qxf2
         [5, 5],
         [1, 5],
         # O-O (illegal because of queen
@@ -254,34 +254,34 @@ def test_castling_OOO_failure():
     s = game.init_state()
 
     actions = [
-        # E4
+        # e4
         [1, 4],
         [3, 4],
-        # E5
+        # e5
         [6, 4],
         [4, 4],
-        # NA3
+        # Na3
         [0, 1],
         [2, 0],
-        # QE7
+        # Qe7
         [7, 3],
         [6, 4],
-        # QF3
+        # Qf3
         [0, 3],
         [2, 5],
-        # QD6
+        # Qd6
         [6, 4],
         [5, 3],
-        # B3
+        # b3
         [1, 1],
         [2, 1],
-        # NC6
+        # Nc6
         [7, 1],
         [5, 2],
-        # BB2
+        # Bb2
         [0, 2],
         [1, 1],
-        # QXD2
+        # QXd2
         [5, 3],
         [1, 3],
         # O-O-O (illegal because of Q on D2)
@@ -298,23 +298,23 @@ def test_castling_OOO_failure():
 
 
 def test_check():
-    render = True
+    render = False
     game = Chess2d()
     s = game.init_state()
     actions = [
-        # E4
+        # e4
         [1, 4],
         [3, 4],
-        # E5
+        # e5
         [6, 4],
         [4, 4],
-        # QH5
+        # Qh5
         [0, 3],
         [4, 7],
-        # D5
+        # d5
         [6, 3],
         [4, 3],
-        # QxF3
+        # Qxf3
         [4, 7],
         [6, 5],
     ]
@@ -359,8 +359,6 @@ def test_chess5d_undo_turn(seed, depth=250):
             assert torch.equal(temp_state.start_turn_board_mask, prev_start_turn_state.start_turn_board_mask)
         s = s_prime
         depth -= 1
-
-    game.render(game.get_canvas(), s)
 
 
 edge_lists = []
@@ -456,3 +454,19 @@ def test_all_turns(seed, depth):
             assert game.is_valid(s_prime, action)
             s_prime, _, _, _ = game.step(s_prime, action)
         assert game.is_valid(s_prime, (-torch.ones(4, dtype=torch.int), torch.tensor(0)))
+
+
+@pytest.mark.parametrize(
+    "algebraic_actions",
+    [
+        ["e4", "e5", "Na3"],
+    ],
+)
+def test_algebraic_notation(algebraic_actions):
+    game = Chess2d()
+    s = game.init_state()
+    for action in algebraic_actions:
+        pick, place = game.from_algebraic_notation(state=s, action=action)
+        alg = game.to_algebraic_notation(state=s, pick_action=pick, place_action=place)
+        assert action == alg
+        s, _, _, _ = game.step_weak_type(state=s, action=action)

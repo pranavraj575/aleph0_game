@@ -222,6 +222,7 @@ class Chess5d(Game):
 
         time1, dim1, i1, j1 = pick_idx
         time2, dim2, i2, j2 = place_idx
+        aux = dict()
         if (time1, dim1) == (time2, dim2):
             # Special case, where the move begins and ends on same board
             capture = new_board[*place_idx].clone()
@@ -239,13 +240,16 @@ class Chess5d(Game):
                 if torch.abs(diff) > 1:  # we have castled, move rook as well
                     if j2 > j1:
                         new_frame[i1, j1:j2] = self.GHOST_KING * state.player
+                        aux["castled"] = "right"
                     else:
                         new_frame[i1, j2 + 1 : j1 + 1] = self.GHOST_KING * state.player
+                        aux["castled"] = "left"
                     rook_pick_j = 0 if diff < 0 else self.BOARD_SIZE - 1
                     rook_place_j = int((j2 + j1) / 2)
 
                     new_frame[i2, rook_pick_j] = self.EMPTY
                     new_frame[i2, rook_place_j] = self.GHOST_ROOK * state.player
+
             if ident == self.PAWN:  # check for en passant
                 if (abs(i2 - i1) == 1) and (abs(j2 - j1) == 1):  # captured in xy coords
                     if torch.abs(new_board[time1, dim1, i1, j2]) == self.PASSANTABLE_PAWN:
@@ -349,11 +353,15 @@ class Chess5d(Game):
         else:
             term = False
             rwd = torch.zeros(2)
+
+        if captured_id > 0:
+            aux["capture"] = capture
+
         return (
             new_state,
             rwd,
             term,
-            dict(),
+            aux,
         )
 
     def action_mask(self, state: State):
@@ -943,3 +951,108 @@ class Chess2d(Chess5d):
             s += "\n"
         s += "\n\n"
         return s
+
+    def step_weak_type(self, state, action):
+        """
+        allow moves using algebraic notation (string)
+        CAPITAL LETTERS MATTER
+        i.e. imagine the following setting with a bishop and 3 pawns, where the bishop is on the b rank
+        B..
+        .p.
+        P.P
+        then the middle pawn (say on c7) can be captured by the bishop, or the pawn on the same rank (or the other pawn, but ignore this)
+        if bishop: Bxc7
+        if pawn: bxc7
+        """
+        if type(action) is str:
+            pick_idx, place_idx = self.from_algebraic_notation(state=state, action=action)
+            state, _, _, aux = self.step(state, pick_idx)
+            state, rwd, term, aux_p = self.step(state, place_idx)
+            return state, rwd, term, aux | aux_p
+        else:
+            return super().step_weak_type(state, action)
+
+    def from_algebraic_notation(self, state: State, action: str):
+        if action.lower().startswith("o-o") or action.startswith("0-0"):
+            if state.player <= 0:
+                rank = 7
+            else:
+                rank = 0
+            kings_file = 4
+            if len(action) == 3:
+                # O-O
+                target_file = kings_file + 2
+            else:
+                # O-O-O
+                target_file = kings_file - 2
+            return torch.tensor((rank, kings_file)), torch.tensor((rank, target_file))
+        place_square = action[-2:].lower()
+        place_idx = torch.tensor([int(place_square[1]) - 1, ord(place_square[0]) - 97])
+        pick_hint = action[:-2].replace("x", "")
+        if pick_hint and pick_hint[0].isupper():
+            piece_hint = pick_hint[0]
+            square_hint = pick_hint[1:]
+        else:
+            piece_hint = ""
+            square_hint = pick_hint
+
+        # 8x8 mask of which pieces can move
+        pick_mask = self.action_mask(state)
+        if piece_hint == "":
+            hint_mask = torch.logical_or(
+                torch.eq(state.board[-1, 0], state.player * self.PAWN), torch.eq(state.board[-1, 0], state.player * self.UNMOVED_PAWN)
+            )
+        elif piece_hint == "K":
+            hint_mask = torch.logical_or(
+                torch.eq(state.board[-1, 0], state.player * self.KING), torch.eq(state.board[-1, 0], state.player * self.UNMOVED_KING)
+            )
+        elif piece_hint == "R":
+            hint_mask = torch.logical_or(
+                torch.eq(state.board[-1, 0], state.player * self.ROOK), torch.eq(state.board[-1, 0], state.player * self.UNMOVED_ROOK)
+            )
+        else:
+            ident = {
+                "N": self.KNIGHT,
+                "B": self.BISHOP,
+                "Q": self.QUEEN,
+            }[piece_hint]
+            hint_mask = torch.eq(state.board[-1, 0], state.player * ident)
+        pick_mask = torch.logical_and(hint_mask, pick_mask)
+        if square_hint:
+            possible_squares = torch.ones_like(pick_mask, dtype=torch.bool)
+            if square_hint[-1].isdigit():
+                mask = torch.eq(torch.arange(self.BOARD_SIZE), int(square_hint[-1]) - 1).reshape(-1, 1)
+                possible_squares = torch.logical_and(possible_squares, mask)
+            if not square_hint[0].isdigit():
+                mask = torch.eq(torch.arange(self.BOARD_SIZE), ord(square_hint[0]) - 97).reshape(1, -1)
+                possible_squares = torch.logical_and(possible_squares, mask)
+            pick_mask = torch.logical_and(pick_mask, possible_squares)
+        for pick_idx in zip(*torch.where(pick_mask)):
+            pick_idx = torch.tensor(pick_idx)
+            full_pick_idx = torch.concatenate((torch.tensor([len(state.board) - 1, 0]), pick_idx))
+            for option in self._piece_possible_moves(board=state.board, piece_idx=full_pick_idx):
+                if torch.equal(option[2:], place_idx):
+                    return pick_idx, place_idx
+
+        self.render(self.get_canvas(), state)
+        raise Exception("on this board, no moves found to match " + action)
+
+    def to_algebraic_notation(self, state: State, pick_action, place_action):
+        place_hint = chr(97 + place_action[1]) + str(place_action[0].item() + 1)
+        temp_state, _, _, _ = self.step(state=state, action=pick_action)
+        temp_state, _, _, aux = self.step(state=temp_state, action=place_action)
+        # TODO: maybe check for check/mate
+        if "castled" in aux:
+            if aux["castled"] == "left":
+                return "O-O-O"
+            else:
+                return "O-O"
+
+        if "capture" in aux:
+            place_hint = "x" + place_hint
+
+        pick_hint = self.piece_to_str(state.board[-1, 0, *pick_action]).upper()
+        if pick_hint == "P":
+            pick_hint = ""
+        # TODO: distinguish squares if there is ambiguity
+        return pick_hint + place_hint
