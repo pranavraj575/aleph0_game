@@ -1,0 +1,29 @@
+[Event "FIDE Online Olympiad"]
+[Site "Chess.com"]
+[Date "2020.08.08"]
+[EventDate "2020.08.07"]
+[Round "4"]
+[Result "1/2-1/2"]
+[White "Aleksandra Aleksandrova"]
+[Black "Rita Maria Osorio Jorge"]
+[ECO "A46"]
+[WhiteElo "1825"]
+[BlackElo "1837"]
+[PlyCount "151"]
+
+1. d4 Nf6 2. Nf3 e6 3. Nbd2 d5 4. c3 Be7 5. Qc2 O-O
+6. Ne5 Nbd7 7. h3 c5 8. e3 Nxe5 9. dxe5 Nd7 10. Nf3 Qc7
+11. Bd3 g6 12. h4 Nxe5 13. h5 Nxd3+ 14. Qxd3 Bf6 15. e4 dxe4
+16. Qxe4 Bd7 17. hxg6 fxg6 18. Bf4 Qxf4 19. Qxf4 Bxc3+ 20. bxc3 Rxf4
+21. O-O-O Bc6 22. Ng5 Bd5 23. f3 Rf5 24. Nxh7 Kg7 25. c4 Bc6
+26. Rd6 Re5 27. f4 Rf5 28. Ng5 e5 29. Rh7+ Kf8 30. Rxg6 Re8
+31. Ne6+ Rxe6 32. Rxe6 exf4 33. Ree7 Kg8 34. Rc7 f3 35. gxf3 Rxf3
+36. Rhg7+ Kh8 37. Rg4 Rf1+ 38. Kb2 Rf2+ 39. Kb3 Rf3+ 40. Kc2 Rf2+
+41. Kc3 Rf3+ 42. Kd2 Rf2+ 43. Ke3 Rf3+ 44. Ke2 Rf5 45. Rh4+ Kg8
+46. Rc8+ Kf7 47. Rhh8 Ke6 48. Rh6+ Ke5 49. Rd8 Bf3+ 50. Ke3 Bc6
+51. Ra8 a6 52. Rd8 Rf3+ 53. Ke2 Rf5 54. Rh3 Rg5 55. Re3+ Kf6
+56. Rd6+ Kf7 57. Rde6 Rg2+ 58. Kd3 Rxa2 59. R6e5 Ra3+ 60. Kd2 Ra4
+61. Rxc5 Ra2+ 62. Kc3 Ra3+ 63. Kd4 Rxe3 64. Kxe3 Ke6 65. Kd4 Kd6
+66. Rh5 b6 67. Rh6+ Kc7 68. Ke5 a5 69. Rh7+ Bd7 70. Kd5 a4
+71. c5 bxc5 72. Kxc5 Kc8 73. Kb4 Be8 74. Rh8 Kd8 75. Rxe8+ Kxe8
+76. Kxa4 1/2-1/2

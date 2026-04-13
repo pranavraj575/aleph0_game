@@ -1,4 +1,5 @@
 import itertools
+import os
 
 import pytest
 import torch
@@ -456,11 +457,39 @@ def test_all_turns(seed, depth):
         assert game.is_valid(s_prime, (-torch.ones(4, dtype=torch.int), torch.tensor(0)))
 
 
+def clean_pgm(fn):
+    with open(fn, "r") as f:
+        s = f.read()
+        s = " ".join(t for t in s.split("\n") if not (t.startswith("[")))
+        s = s.replace(".", ". ").replace("  ", " ").strip().split(" ")
+    output = [m for m in s if "." not in m]
+    if output[-1] in ("1-0", "0-1", "1/2-1/2"):
+        # remove result
+        output = output[:-1]
+    return output
+
+
+# from https://www.chessgames.com/
+downloaded_games = [
+    """1. d4 Nf6 2. Nf3 g6 3. g3 Bg7 4. Bg2 c5 5. c4 Nc6
+6. Nc3 O-O 7. O-O d6 8. dxc5 dxc5 9. Bf4 Bd7 10. Ne5 Nxe5
+11. Bxe5 Qc8 12. Nd5 Nxd5 13. Bxg7 Kxg7 14. Qxd5 Qc7 15. b3 Rab8
+16. Rfd1 Rfd8 17. Qe4 Bc6 18. Qe3 Bxg2 19. Kxg2 b6 20. Qc3+ Kg8
+21. Qc2 Kg7 22. Qc3+ Kg8 23. Qc2 Kg7 24. Qc3+""",
+]
+
+test_dir = os.path.dirname(__file__)
+
+
 @pytest.mark.parametrize(
     "algebraic_actions",
     [
         ["e4", "e5", "Na3"],
-    ],
+        ["e4", "d5", "c4", "b5", "exd5"],
+        ["e4", "d5", "c4", "b5", "cxd5"],
+        ["e4", "e5", "Qh5", "Na6", "Bc4", "Nb8", "Qxf7#"],
+    ]
+    + [clean_pgm(os.path.join(test_dir, "notation_tests", fn)) for fn in os.listdir(os.path.join(test_dir, "notation_tests"))],
 )
 def test_algebraic_notation(algebraic_actions):
     game = Chess2d()

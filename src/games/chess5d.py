@@ -229,11 +229,12 @@ class Chess5d(Game):
             new_frame = new_board[time1, dim1].clone()
             new_frame = self.mutate_remove_temporary_states(frame=new_frame)
             new_frame[i1, j1] = self.EMPTY
-            new_frame[i2, j2] = self.get_moved_piece(
+            new_frame[i2, j2], moved_aux = self.get_moved_piece(
                 piece=state.piece_held,
                 pick=state.held_piece_origin,
                 place=place_idx,
             )
+            aux.update(moved_aux)
             ident = torch.abs(state.piece_held)
             if ident == self.UNMOVED_KING:  # check for castling
                 diff = j2 - j1
@@ -295,11 +296,12 @@ class Chess5d(Game):
             new_frame_place = new_board[time2, dim2].clone()
             capture = new_board[*place_idx].clone()
             new_frame_place = self.mutate_remove_temporary_states(frame=new_frame_place)
-            new_frame_place[i2, j2] = self.get_moved_piece(
+            new_frame_place[i2, j2], moved_aux = self.get_moved_piece(
                 piece=state.piece_held,
                 pick=state.held_piece_origin,
                 place=place_idx,
             )
+            aux.update(moved_aux)
             new_board, new_center_timeline = self.mutate_add_child_frame(
                 board=new_board,
                 center_timeline=new_center_timeline,
@@ -461,7 +463,7 @@ class Chess5d(Game):
         frame[ghost_king] = self.EMPTY
 
         ghost_rook = torch.eq(ident_frame, self.GHOST_ROOK)
-        frame[ghost_rook] = self.ROOK
+        frame[ghost_rook] = torch.sign(frame[ghost_rook]) * self.ROOK
         return frame
 
     def idx_exists(self, board, td_idx, ij_idx=(0, 0)):
@@ -489,16 +491,18 @@ class Chess5d(Game):
     def get_moved_piece(self, piece, pick, place):
         ident = torch.abs(piece)
         # if unmoved (pawn, king, rook), it is now moved
+        aux = dict()
         if self.LOWEST_UNMOVED <= ident and ident <= self.HIGHEST_UNMOVED:
             ident = ident - self.UNMOVED_SHIFT
         if (ident == self.PAWN) or (ident == self.PASSANTABLE_PAWN):
             if (place[2] == self.BOARD_SIZE - 1) or (place[2] == 0):
                 # TODO: if we want choice, add an UNKNOWN piece, and special actions for each possible choice
                 ident = self.QUEEN
+                aux["promotion"] = "Q"
             if abs(pick[2] - place[2]) == 2:
                 # pawn moved two spaces, can be captured by enpassant
                 ident = self.PASSANTABLE_PAWN
-        return ident * torch.sign(piece)
+        return ident * torch.sign(piece), aux
 
     def get_active_board_range(self, board, center_timeline):
         """
@@ -749,16 +753,25 @@ class Chess5d(Game):
         old_state = self.undo_player_turn(state=terminal_state, prev_turn=True)
         if self.player_in_check(old_state):
             return False
+        if self.player_has_non_losing_turn(state=old_state):
+            return False
+        return True
+
+    def player_has_non_losing_turn(self, state: State):
+        """
+        checks if current player has a turn that ends without them in check
+        used in stalemate test
+        """
         # TODO: check all possible moves from old state, if any avoid check, then this is not stalemate
-        for turn in self.get_all_possible_turns(state=old_state, all_permutations=False):
-            temp_s = old_state
+        for turn in self.get_all_possible_turns(state=state, all_permutations=False):
+            temp_s = state
             for pick_idx, place_idx in turn:
                 recenter = torch.tensor([0, temp_s.center_timeline, 0, 0])
                 temp_s, _, _, _ = self._step(temp_s, (pick_idx + recenter, torch.tensor(-1, dtype=torch.int)))
                 temp_s, _, _, _ = self._step(temp_s, (place_idx + recenter, torch.tensor(-1, dtype=torch.int)))
             if not self.player_in_check(state=temp_s):
-                return False
-        return True
+                return True
+        return False
 
     def get_all_possible_turns(self, state: State, all_permutations=False):
         """
@@ -972,7 +985,21 @@ class Chess2d(Chess5d):
         else:
             return super().step_weak_type(state, action)
 
-    def from_algebraic_notation(self, state: State, action: str):
+    def from_algebraic_notation(self, state: State, action: str, ambiguous=False):
+        """
+        takes a move in algebraic notation and returns the (pick, place) coordinates
+        :param state:
+        :param action:
+        :param ambiguous: if True,the action might be ambiguous.
+            returns a list of all actions that match the algebraic notation
+        :return:
+        """
+        # dont need hints of check, checkmate, or capturing
+        action = action.replace("#", "").replace("+", "").replace("x", "")
+        if "=" in action:
+            # TODO: how to promote to a non-queen, maybe have special moves?
+            assert action[-1] == "Q", "promotion to non-queen is not handled yet"
+            action = action.split("=")[0]
         if action.lower().startswith("o-o") or action.startswith("0-0"):
             if state.player <= 0:
                 rank = 7
@@ -988,7 +1015,7 @@ class Chess2d(Chess5d):
             return torch.tensor((rank, kings_file)), torch.tensor((rank, target_file))
         place_square = action[-2:].lower()
         place_idx = torch.tensor([int(place_square[1]) - 1, ord(place_square[0]) - 97])
-        pick_hint = action[:-2].replace("x", "")
+        pick_hint = action[:-2]
         if pick_hint and pick_hint[0].isupper():
             piece_hint = pick_hint[0]
             square_hint = pick_hint[1:]
@@ -1027,32 +1054,59 @@ class Chess2d(Chess5d):
                 mask = torch.eq(torch.arange(self.BOARD_SIZE), ord(square_hint[0]) - 97).reshape(1, -1)
                 possible_squares = torch.logical_and(possible_squares, mask)
             pick_mask = torch.logical_and(pick_mask, possible_squares)
+        out = []
         for pick_idx in zip(*torch.where(pick_mask)):
             pick_idx = torch.tensor(pick_idx)
             full_pick_idx = torch.concatenate((torch.tensor([len(state.board) - 1, 0]), pick_idx))
             for option in self._piece_possible_moves(board=state.board, piece_idx=full_pick_idx):
                 if torch.equal(option[2:], place_idx):
-                    return pick_idx, place_idx
+                    if ambiguous:
+                        out.append((pick_idx, place_idx))
+                    else:
+                        return pick_idx, place_idx
 
-        self.render(self.get_canvas(), state)
-        raise Exception("on this board, no moves found to match " + action)
+        assert len(out) > 0, f"{self.get_game_str(state)}\n with this board, no moves found to match " + action
+        return out
 
     def to_algebraic_notation(self, state: State, pick_action, place_action):
         place_hint = chr(97 + place_action[1]) + str(place_action[0].item() + 1)
         temp_state, _, _, _ = self.step(state=state, action=pick_action)
         temp_state, _, _, aux = self.step(state=temp_state, action=place_action)
-        # TODO: maybe check for check/mate
+        # TODO: check for checkmate
+        if self.player_in_check(temp_state):
+            if self.player_has_non_losing_turn(state=temp_state):
+                suffix = "+"
+            else:
+                suffix = "#"
+        else:
+            suffix = ""
+
         if "castled" in aux:
             if aux["castled"] == "left":
-                return "O-O-O"
+                return "O-O-O" + suffix
             else:
-                return "O-O"
+                return "O-O" + suffix
 
         if "capture" in aux:
             place_hint = "x" + place_hint
+        if "promotion" in aux:
+            place_hint = place_hint + "=" + aux["promotion"]
 
         pick_hint = self.piece_to_str(state.board[-1, 0, *pick_action]).upper()
         if pick_hint == "P":
             pick_hint = ""
+            if "capture" in aux:
+                # pawn files are included for captures apparently
+                pick_hint = chr(97 + pick_action[1])
+        if len(self.from_algebraic_notation(state=state, action=pick_hint + place_hint, ambiguous=True)) > 1:
+            for disambiguation in (
+                pick_hint + chr(97 + pick_action[1]),
+                pick_hint + str(pick_action[0].item() + 1),
+                pick_hint + chr(97 + pick_action[1]) + str(pick_action[0].item() + 1),
+            ):
+                if len(self.from_algebraic_notation(state=state, action=disambiguation + place_hint, ambiguous=True)) == 1:
+                    pick_hint = disambiguation
+                    break
+
         # TODO: distinguish squares if there is ambiguity
-        return pick_hint + place_hint
+        return pick_hint + place_hint + suffix
