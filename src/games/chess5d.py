@@ -1,5 +1,6 @@
 import dataclasses
 import itertools
+from collections import defaultdict
 
 import torch
 
@@ -22,6 +23,50 @@ class State:
     # we split the game into a pick piece and place piece phase, in the second case, these tracks which piece is picked
     piece_held: torch.Tensor = torch.tensor(0)
     held_piece_origin: torch.Tensor = -torch.ones(4, dtype=torch.int)
+
+
+def all_subsets(iterable, all_permutations=False):
+    for k in range(len(iterable) + 1):
+        for subset in itertools.combinations(iterable, k):
+            if all_permutations:
+                for perm in itertools.permutations(subset):
+                    yield perm
+            else:
+                yield subset
+
+
+def DAG_subgraphs_w_at_most_one_outgoing_edge(edge_list: dict, used_sources=None, used_vertices=None):
+    """
+    iterable of all lists of edges that create a DAG such that each vertex is the source of at most one edge
+        (we run through all permutations, sort of wasteful)
+    the order returned will be in reverse topological order (the correct traversal)
+
+    :param edge_list: dict(vertex -> vertex set), must be copyable
+    :param used_sources: set(vertex), sources that were already used as source
+    :param used_vertices: set(vertex), vertices that were already used as source or sink (and thus cant be reused as source)
+    :return: iterable of (list[(start vertex, end vertex)], used vertices)
+    """
+    if used_sources is None:
+        used_sources = set()
+    if used_vertices is None:
+        used_vertices = used_sources.copy()
+    # given the used items, can either add nothing,
+    yield (), used_sources, used_vertices
+    # or add some edge (edge must not have a source in used_vertices)
+    for source in edge_list:
+        if source not in used_vertices:
+            for end in edge_list[source]:
+                for (
+                    subsub,
+                    all_source,
+                    all_used,
+                ) in DAG_subgraphs_w_at_most_one_outgoing_edge(
+                    edge_list=edge_list,
+                    used_sources=used_sources.union({source}),
+                    # if (source, end) move is made, no other moves can be made from eitehr source or end
+                    used_vertices=used_vertices.union({source, end}),
+                ):
+                    yield (((source, end),) + subsub, all_source, all_used)
 
 
 class Chess5d(Game):
@@ -65,7 +110,7 @@ class Chess5d(Game):
     UNICORN = 11  # attacks on triagonls
     DRAGON = 12  # attacks on quadragonals
 
-    def __init__(self):
+    def __init__(self, stalemate_is_win=True):
         """
         implemented 5d chess
         SIMPLIFICATIONS:
@@ -74,6 +119,7 @@ class Chess5d(Game):
                 Thus, this is equivalent to not being able to castle, as doing so loses the game
         """
         super().__init__()
+        self.stalemate_is_win = stalemate_is_win
 
     def has_special_actions(self):
         return True
@@ -287,7 +333,7 @@ class Chess5d(Game):
         )
         if captured_id in (self.KING, self.UNMOVED_KING) or ((time1, dim1) == (time2, dim2) and captured_id in (self.GHOST_KING, self.GHOST_ROOK)):
             term = True
-            if self.is_stalemate(new_state):
+            if (not self.stalemate_is_win) and self.is_stalemate(new_state):
                 rwd = torch.zeros(2)
             else:
                 rwd = torch.tensor([state.player, -state.player])
@@ -472,7 +518,7 @@ class Chess5d(Game):
             self.KING,
             self.UNMOVED_KING,
         ):  # easy linear moves
-            if ident == self.ROOK:
+            if ident in (self.ROOK, self.UNMOVED_ROOK):
                 dims_to_change = itertools.combinations(range(4), 1)
             elif ident == self.BISHOP:
                 dims_to_change = itertools.combinations(range(4), 2)
@@ -497,7 +543,7 @@ class Chess5d(Game):
                     pos += vec
                     while self.idx_exists(board, pos[:2], pos[2:]) and (torch.sign(board[*pos]) != player):
                         yield pos.clone()
-                        if (torch.sign(board[*pos]) != 0) or (ident == self.KING) or (ident == self.UNMOVED_KING):
+                        if (torch.sign(board[*pos]) != 0) or (ident in (self.KING, self.UNMOVED_KING)):
                             # end of the line, or the king which moves single spaces
                             break
                         pos += vec
@@ -660,7 +706,7 @@ class Chess5d(Game):
             piece_idx = torch.tensor(piece_idx)
             for place_idx in self._piece_possible_moves(new_board, piece_idx):
                 dest_piece = torch.abs(new_board[*place_idx])
-                if dest_piece == self.KING:
+                if dest_piece in (self.KING, self.UNMOVED_KING):
                     return True
                 elif dest_piece in (self.GHOST_KING, self.GHOST_ROOK) and (place_idx[:2] == piece_idx[:2]):
                     return True
@@ -678,7 +724,90 @@ class Chess5d(Game):
         if self.player_in_check(old_state):
             return False
         # TODO: check all possible moves from old state, if any avoid check, then this is not stalemate
-        return False
+        for turn in self.get_all_possible_turns(state=old_state, all_permutations=False):
+            temp_s = old_state
+            for pick_idx, place_idx in turn:
+                recenter = torch.tensor([0, temp_s.center_timeline, 0, 0])
+                temp_s, _, _, _ = self.step(temp_s, (pick_idx + recenter, torch.tensor(-1, dtype=torch.int)))
+                temp_s, _, _, _ = self.step(temp_s, (place_idx + recenter, torch.tensor(-1, dtype=torch.int)))
+            if not self.player_in_check(state=temp_s):
+                return False
+        return True
+
+    def get_all_possible_turns(self, state: State, all_permutations=False):
+        """
+        iterable of all turns of current player from state
+        first, we break moves into equivalence classes based on the (time, dim) of the pick and the place
+        move order MOSTLY does not matter, as a board that is spawned cannot be moved to/through (since it is an opponent board)
+        the exception is if a move is made to and from a particular board. In this case, the board must be the SOURCE of a move first, then be the SINK
+        then we must take care of order when a set of moves contains moves that move TO an active board:
+            any move that moves TO a board at (time, dim) must occur after a move that moves FROM (time, dim)
+                exception is moves that start and end at same (time,dim) ('self edges'), which must occur first
+            Thus, every turn has the following order: ((0) self edges, (1) moves that DONT move TO an active board, (2) moves that do move TO an active board)
+            additionally, type (2) can be thought of as a directed graph (vertices are (time,dim) coordinates, edges are the moves)
+            this graph cannot have cycles (since this would make it impossible for the "exit" move to occur before the "enter" move on every board of the cycle)
+            Thus, this graph must be a DAG, where each vertex is the source of at most one edge
+        to generate all possible turns, first consider all possible subsets of moves of type (2) that represent a DAG with that property
+            i.e. all vertices are source of at most one edge
+        then consider all moves of type (1) or (0) that do not use any 'sources' from the moves already generated
+        This will generate all possible subsets of moves that can generate a turn
+        a subset is a valid turn if all boards in the 'present' are the source or sink of some move
+
+        once we have a valid subset, we can consider permutations
+            type (0) moves have the same result with any permutation
+            type (1) moves do have different results with different permutations
+            type (2) moves do also (since they do not spawn a new dimension)
+
+        NOTE: turn is centered at the CENTER dimension (to prevent errors resulting from a move changing board indices)
+        """
+        center_idx = torch.tensor([0, state.center_timeline, 0, 0])
+        # assert state.piece_held==0
+        board_action_mask, _ = self.action_mask(state=state)
+        present = self.get_present(board=state.board, center_timeline=state.center_timeline)
+        # boards with any movable pieces
+        source_board_mask = torch.any(board_action_mask, dim=(2, 3))
+        source_boards = set(tuple(map(int, item)) for item in zip(*torch.where(source_board_mask)))
+        source_boards_in_present = {(t, d) for (t, d) in source_boards if t == present}
+        # create graph structure
+        all_self_edges = set()
+        edge_list_to_active = defaultdict(lambda: set())
+        edge_list_not_to_active = defaultdict(lambda: set())
+        partition = defaultdict(lambda: list())
+        for piece_idx in zip(*torch.where(board_action_mask)):
+            piece_idx = torch.tensor(piece_idx)
+            for place_idx in self._piece_possible_moves(board=state.board, piece_idx=piece_idx):
+                start_td_idx, end_td_idx = tuple(map(int, piece_idx[:2])), tuple(map(int, place_idx[:2]))
+                partition[(start_td_idx, end_td_idx)].append((piece_idx, place_idx))
+                if start_td_idx == end_td_idx:
+                    all_self_edges.add(start_td_idx)
+                elif end_td_idx in source_boards:
+                    edge_list_to_active[start_td_idx].add(end_td_idx)
+                else:
+                    edge_list_not_to_active[start_td_idx].add(end_td_idx)
+        for move_indices, used_sources, used_td_idxs in DAG_subgraphs_w_at_most_one_outgoing_edge(edge_list=edge_list_to_active):
+            # move_indices are the moves of type (2)
+            # see any self edges that can be added (i.e. moves of type (1))
+            possible_self_edges = all_self_edges.difference(used_sources)
+            for self_edges in all_subsets(possible_self_edges):
+                # self_edge_indices are moves of type (1)
+                used_sources_p = used_sources.union(self_edges)
+                used_td_idxs_p = used_td_idxs.union(self_edges)
+                # see any moves of type (3) that can be added
+                possible_type_three_sources = set(edge_list_not_to_active.keys()).difference(used_sources_p)
+                for type_three_sources in all_subsets(possible_type_three_sources, all_permutations=all_permutations):
+                    used_td_idxs_pp = used_td_idxs_p.union(type_three_sources)
+                    # check if this subset advances the present
+                    if not source_boards_in_present.issubset(used_td_idxs_pp):
+                        continue
+                    for type_three_sinks in itertools.product(*(edge_list_not_to_active[td_idx] for td_idx in type_three_sources)):
+                        # return turn, done as type (0), (1), then (2) moves
+
+                        equivalnce_class_turn = (
+                            tuple((td_idx, td_idx) for td_idx in self_edges) + tuple(zip(type_three_sources, type_three_sinks)) + move_indices
+                        )
+
+                        for turn in itertools.product(*(partition[t] for t in equivalnce_class_turn)):
+                            yield tuple((start_idx - center_idx, end_idx - center_idx) for (start_idx, end_idx) in turn)
 
     ###
     # RENDERING
@@ -758,6 +887,9 @@ class Chess5d(Game):
 
 
 class Chess2d(Chess5d):
+    def __init__(self, stalemate_is_win=False):
+        super().__init__(stalemate_is_win=stalemate_is_win)
+
     def has_special_actions(self):
         return False
 
@@ -793,3 +925,30 @@ class Chess2d(Chess5d):
             s += "\n"
         s += "\n\n"
         return s
+
+
+if __name__ == "__main__":
+    g = Chess5d()
+    c = g.get_canvas()
+    s = g.init_state()
+    for action in [
+        ((0, 0, 1, 4), (-1)),
+        ((0, 0, 3, 4), (-1)),
+        (-torch.ones(4), (0)),
+        ((1, 0, 6, 4), (-1)),
+        ((1, 0, 4, 4), (-1)),
+        (-torch.ones(4), (0)),
+        ((2, 0, 0, 1), (-1)),
+        ((0, 0, 2, 1), (-1)),
+        (-torch.ones(4), (0)),
+        ((1, 0, 7, 3), (-1)),
+        ((3, 1, 6, 4), (-1)),
+        (-torch.ones(4), (0)),
+        # ((2, 0, 2, 1), (-1)),
+        # ((2, 1, 2, 3), (-1)),
+    ]:
+        assert g.is_valid(s, (torch.tensor(action[0]), torch.tensor(action[1])))
+        s, _, _, _ = g.step_weak_type(s, action)
+    g.render(c, s)
+    # g.render_action_mask(c,s)
+    print(list(g.get_all_possible_turns(s)))

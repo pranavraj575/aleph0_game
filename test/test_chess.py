@@ -1,8 +1,11 @@
+import itertools
+
 import pytest
 import torch
 from test_games import sample_from_action_mask
 
 from src.games import Chess2d, Chess5d
+from src.games.chess5d import DAG_subgraphs_w_at_most_one_outgoing_edge, all_subsets
 
 en_passant_tests = (
     [
@@ -294,6 +297,31 @@ def test_castling_OOO_failure():
         assert reward[0] == -1 and reward[1] == 1
 
 
+def test_check():
+    render = True
+    game = Chess2d()
+    s = game.init_state()
+    actions = [
+        # E4
+        [1, 4],
+        [3, 4],
+        # E5
+        [6, 4],
+        [4, 4],
+        # QH5
+        [0, 3],
+        [4, 7],
+        # D5
+        [6, 3],
+        [4, 3],
+        # QxF3
+        [4, 7],
+        [6, 5],
+    ]
+    temp_s, _, _ = apply_actions(game, s, actions, render=render)
+    assert game.player_in_check(temp_s)
+
+
 @pytest.mark.parametrize("seed", list(range(3)))
 def test_chess5d_undo_turn(seed, depth=250):
     game = Chess5d()
@@ -333,3 +361,98 @@ def test_chess5d_undo_turn(seed, depth=250):
         depth -= 1
 
     game.render(game.get_canvas(), s)
+
+
+edge_lists = []
+torch.random.manual_seed(0)
+for n in range(3, 9):
+    for _ in range(4 * (8 - n) + 3):
+        el = dict()
+        for i in range(n):
+            el[i] = [
+                j
+                for j in range(n)
+                if j != i
+                and torch.rand(
+                    1,
+                )
+                < 0.5
+            ]
+        edge_lists.append(el)
+
+
+@pytest.mark.parametrize("edge_list", edge_lists)
+def test_dag_subgraph(edge_list):
+    all_graphs = [g for g, _, _ in DAG_subgraphs_w_at_most_one_outgoing_edge(edge_list=edge_list)]
+
+    # assert it is a DAG (and in reeverse topological order, where each edge (a,b) is made before any (x,a))
+    # also assert that each vertex is the source of at most one edge
+    def is_sorted_DAG_with_property(graph):
+        used_vertices = set()
+        for a, b in graph:
+            if a in used_vertices:
+                return False
+            used_vertices = used_vertices.union({a, b})
+        return True
+
+    for graph in all_graphs:
+        assert is_sorted_DAG_with_property(graph)
+
+    all_edges = []
+    for s in edge_list:
+        all_edges.extend([(s, sink) for sink in edge_list[s]])
+    if len(all_edges) <= 10:
+        for subset in all_subsets(all_edges):
+            for graph in itertools.permutations(subset):
+                if is_sorted_DAG_with_property(graph):
+                    assert graph in all_graphs
+
+
+@pytest.mark.parametrize("seed", list(range(3)))
+@pytest.mark.parametrize(
+    "depth",
+    [
+        5,
+        10,
+        15,
+        25,
+    ],
+)
+def test_all_turns(seed, depth):
+    game = Chess5d()
+    torch.random.manual_seed(seed)
+    s = game.init_state()
+    terminal = False
+    while depth >= 0 and not terminal:
+        mask = game.action_mask(s)
+        action = sample_from_action_mask(game, mask)
+
+        assert game.is_valid(s, action)
+        s_prime, _, terminal, _ = game.step(s, action)
+
+        s = s_prime
+        depth -= 1
+    if terminal:
+        return
+    # make sure game is at start of turn
+    s = game.undo_player_turn(s)
+    turns = list(game.get_all_possible_turns(state=s))
+    og_len = len(turns)
+    # game.render(game.get_canvas(),s)
+    if len(turns) > 2000:
+        turns = [turns[i] for i in torch.randperm(len(turns))[:1000]]
+    print(f"testing {len(turns)} out of {og_len} generated turns")
+    for i, turn in enumerate(turns):
+        print(f"{i + 1}/{len(turns)}", end="\r")
+        s_prime = s
+        for source_idx, sink_idx in turn:
+            source_idx[1] = source_idx[1] + s_prime.center_timeline
+            sink_idx[1] = sink_idx[1] + s_prime.center_timeline
+            action = (source_idx, torch.tensor(-1))
+            # game.render(None,game.step(s_prime,action)[0])
+            assert game.is_valid(s_prime, action)
+            s_prime, _, _, _ = game.step(s_prime, action)
+            action = (sink_idx, torch.tensor(-1))
+            assert game.is_valid(s_prime, action)
+            s_prime, _, _, _ = game.step(s_prime, action)
+        assert game.is_valid(s_prime, (-torch.ones(4, dtype=torch.int), torch.tensor(0)))
