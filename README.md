@@ -1,5 +1,8 @@
 # &aleph;<sub>0</sub> games
-Implementation of a few &aleph;<sub>0</sub> games, including '5D Chess with Multiverse Time Travel'
+Implementation of a few &aleph;<sub>0</sub> games, including 'Jenga' and '5D Chess with Multiverse Time Travel'
+
+![](https://github.com/pranavraj575/aleph0_game/blob/main/images/sample_jenga_game.gif)
+
 
 ## Setup
 
