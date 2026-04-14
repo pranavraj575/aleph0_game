@@ -83,6 +83,8 @@ class Chess5d(Game):
         players are allowed to castle despite being in check.
             However, if player castles, opponent can 'capture' the squares the king moved through, and win the game
             Thus, this is equivalent to not being able to castle, as doing so loses the game
+        reasoning for both of these is computation. We only need to test for checks/stalemate once, at the end of the game
+            This check is difficult, since it requires considering every possible turn from the losing player
     """
 
     BOARD_SIZE = 8
