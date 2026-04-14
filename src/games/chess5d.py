@@ -592,7 +592,7 @@ class Chess5d(Game):
                 for aux_sign in (-1, 1):
                     pos = piece_idx.clone()
                     pos[dims[0]] += player
-                    pos[dims[1]] += aux_sign
+                    pos[dims[1]] += aux_sign * ((dims[1] == 0) + 1)
                     if self.idx_exists(board, pos[:2], pos[2:]) and (torch.sign(board[*pos]) == -player):
                         # this MUST be a capture
                         yield pos
@@ -694,9 +694,9 @@ class Chess5d(Game):
                 #  (i.e. after start_turn_timestep)
                 temp = torch.where(torch.ge(new_board_spawn_timestep, start_turn_timestep), -1, new_board_spawn_timestep)
                 if player == 1:
-                    opponent_steps = temp[::2]
-                else:
                     opponent_steps = temp[1::2]
+                else:
+                    opponent_steps = temp[::2]
                 if len(opponent_steps) == 0:
                     prev_start_turn_timestep = -1
                 else:

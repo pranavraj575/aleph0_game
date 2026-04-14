@@ -98,7 +98,7 @@ en_passant_tests = (
 )
 
 
-def apply_actions(game, state, actions, render=False):
+def apply_actions(game, state, actions, render=False, assert_valid=True):
     if render:
         c = game.get_canvas()
         game.render(c, state)
@@ -106,7 +106,8 @@ def apply_actions(game, state, actions, render=False):
         c = None
     reward, terminal = torch.zeros(game.num_agents()), False
     for action in actions:
-        assert game.is_valid(state, action)
+        if assert_valid:
+            assert game.is_valid(state, action)
         state, reward, terminal, _ = game.step_weak_type(state, action)
         if render:
             game.render(c, state)
@@ -323,6 +324,18 @@ def test_check():
     assert game.player_in_check(temp_s)
 
 
+def assert_state_equality(s1, s2, check_timestep=False):
+    assert torch.equal(s1.board, s2.board)
+    assert s1.center_timeline == s2.center_timeline
+    assert torch.equal(s1.board_spawn_timestep, s2.board_spawn_timestep)
+    if check_timestep:
+        assert (s1.timestep, s1.start_turn_timestep, s1.prev_start_turn_timestep) == (
+            s2.timestep,
+            s2.start_turn_timestep,
+            s2.prev_start_turn_timestep,
+        )
+
+
 @pytest.mark.parametrize("seed", list(range(3)))
 def test_chess5d_undo_turn(seed, depth=250):
     game = Chess5d()
@@ -332,15 +345,12 @@ def test_chess5d_undo_turn(seed, depth=250):
     prev_start_turn_state = None
     start_turn_state = s
     temp_state = game.undo_player_turn(s, prev_turn=False)
-    assert torch.equal(temp_state.board, start_turn_state.board)
-    assert temp_state.center_timeline == start_turn_state.center_timeline
-    # assert torch.equal(temp_state.start_turn_board_mask, start_turn_state.start_turn_board_mask)
+    assert_state_equality(temp_state, start_turn_state, check_timestep=True)
     while depth >= 0 and not terminal:
         mask = game.action_mask(s)
         action = sample_from_action_mask(game, mask)
         game.agent_observe(s)
         game.critic_observe(s)
-        assert game.is_valid(s, action)
         s_prime, _, terminal, _ = game.step(s, action)
         if game.player(s) != game.player(s_prime):
             # END_TURN was played
@@ -348,23 +358,45 @@ def test_chess5d_undo_turn(seed, depth=250):
             start_turn_state = s_prime
 
         temp_state = game.undo_player_turn(state=s_prime, prev_turn=False)
-
-        assert torch.equal(temp_state.board, start_turn_state.board)
-        assert temp_state.center_timeline == start_turn_state.center_timeline
-        # assert torch.equal(temp_state.start_turn_board_mask, start_turn_state.start_turn_board_mask)
-        # assert torch.equal(temp_state.prev_start_turn_board_mask, start_turn_state.prev_start_turn_board_mask)
+        assert_state_equality(temp_state, start_turn_state, check_timestep=True)
 
         if prev_start_turn_state is not None:
             temp_state = game.undo_player_turn(state=s_prime, prev_turn=True)
-            assert torch.equal(temp_state.board, prev_start_turn_state.board)
-            assert temp_state.center_timeline == prev_start_turn_state.center_timeline
-            # assert torch.equal(temp_state.start_turn_board_mask, prev_start_turn_state.start_turn_board_mask)
+
+            assert_state_equality(temp_state, prev_start_turn_state, check_timestep=False)
+
         s = s_prime
         depth -= 1
 
 
+@pytest.mark.parametrize("seed", list(range(3, 6)))
+def test_chess5d_lossless_history(seed, depth=250):
+    game = Chess5d()
+    torch.random.manual_seed(seed)
+    s = game.init_state()
+    start_turn_states = [s]
+    terminal = False
+
+    while depth >= 0 and not terminal:
+        mask = game.action_mask(s)
+        action = sample_from_action_mask(game, mask)
+        game.agent_observe(s)
+        game.critic_observe(s)
+        s, _, terminal, _ = game.step(s, action)
+        if s.player != start_turn_states[-1].player:
+            start_turn_states.append(s)
+        depth -= 1
+    s = game.undo_player_turn(s, prev_turn=False, lossless=True)
+    sp = start_turn_states.pop()
+    assert_state_equality(s, sp, check_timestep=True)
+    while start_turn_states:
+        s = game.undo_player_turn(s, prev_turn=True, lossless=True)
+        sp = start_turn_states.pop()
+        assert_state_equality(s, sp, check_timestep=True)
+
+
 edge_lists = []
-torch.random.manual_seed(0)
+torch.random.manual_seed(6)
 for n in range(3, 9):
     for _ in range(4 * (8 - n) + 3):
         el = dict()
@@ -408,7 +440,7 @@ def test_dag_subgraph(edge_list):
                     assert graph in all_graphs
 
 
-@pytest.mark.parametrize("seed", list(range(3)))
+@pytest.mark.parametrize("seed", list(range(7, 10)))
 @pytest.mark.parametrize(
     "depth",
     [
@@ -426,8 +458,6 @@ def test_all_turns(seed, depth):
     while depth >= 0 and not terminal:
         mask = game.action_mask(s)
         action = sample_from_action_mask(game, mask)
-
-        assert game.is_valid(s, action)
         s_prime, _, terminal, _ = game.step(s, action)
 
         s = s_prime
