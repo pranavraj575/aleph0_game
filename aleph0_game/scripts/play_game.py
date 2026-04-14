@@ -44,7 +44,10 @@ def play_game(
                 except ValueError:
                     pass
             if idx < len(board_actions):
-                action = (board_actions[idx], -1)
+                if game.has_special_actions():
+                    action = (board_actions[idx], -1)
+                else:
+                    action = board_actions[idx]
             else:
                 action = (-torch.ones(game.board_action_dim(state=state), dtype=torch.int), special_actions[idx - len(board_actions)])
         state, rwd, terminal, aux = game.step_weak_type(state=state, action=action)
