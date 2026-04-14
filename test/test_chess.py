@@ -3,7 +3,6 @@ import os
 
 import pytest
 import torch
-from test_games import sample_from_action_mask
 
 from aleph0_game.games import Chess2d, Chess5d
 from aleph0_game.games.chess5d import DAG_subgraphs_w_at_most_one_outgoing_edge, all_subsets
@@ -348,7 +347,7 @@ def test_chess5d_undo_turn(seed, depth=250):
     assert_state_equality(temp_state, start_turn_state, check_timestep=True)
     while depth >= 0 and not terminal:
         mask = game.action_mask(s)
-        action = sample_from_action_mask(game, mask)
+        action = game.sample_from_action_mask(mask)
         game.agent_observe(s)
         game.critic_observe(s)
         s_prime, _, terminal, _ = game.step(s, action)
@@ -379,7 +378,7 @@ def test_chess5d_lossless_history(seed, depth=250):
 
     while depth >= 0 and not terminal:
         mask = game.action_mask(s)
-        action = sample_from_action_mask(game, mask)
+        action = game.sample_from_action_mask(mask)
         game.agent_observe(s)
         game.critic_observe(s)
         s, _, terminal, _ = game.step(s, action)
@@ -457,7 +456,7 @@ def test_all_turns(seed, depth):
     terminal = False
     while depth >= 0 and not terminal:
         mask = game.action_mask(s)
-        action = sample_from_action_mask(game, mask)
+        action = game.sample_from_action_mask(mask)
         s_prime, _, terminal, _ = game.step(s, action)
 
         s = s_prime

@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from aleph0_game.games import F_MNK, MNK, Chess2d, Chess5d, Game, Jenga, TicTacToe
+from aleph0_game.games import F_MNK, MNK, Chess2d, Chess5d, Jenga, TicTacToe
 
 small_games = [
     TicTacToe(),
@@ -20,29 +20,6 @@ all_games = small_games + [
 ]
 
 
-def sample_from_action_mask(game: Game, action_mask):
-    if game.has_special_actions():
-        board_mask, special_mask = action_mask
-        assert board_mask.dtype == torch.bool
-        assert special_mask.dtype == torch.bool
-
-        # easier if swapped here, since we can test action < len(special_mask)
-        combined_mask = torch.concat((special_mask, board_mask.flatten()))
-        action = torch.multinomial(combined_mask.to(torch.float), 1, True)
-        if action < len(special_mask):
-            return (-torch.ones(len(board_mask.shape), dtype=torch.int), action)
-        else:
-            return (
-                torch.cat(torch.unravel_index(action - len(special_mask), board_mask.shape)),
-                torch.tensor(-1),
-            )
-    else:
-        # action mask is a tensor
-        assert action_mask.dtype == torch.bool
-        action = torch.multinomial(action_mask.flatten().to(torch.float), 1, True)
-        return torch.cat(torch.unravel_index(action, action_mask.shape))
-
-
 @pytest.mark.parametrize("seed", list(range(13)))
 @pytest.mark.parametrize("game", small_games)
 def test_game_playthrough(seed, game):
@@ -51,7 +28,7 @@ def test_game_playthrough(seed, game):
     terminal = False
     while not terminal:
         mask = game.action_mask(s)
-        action = sample_from_action_mask(game, mask)
+        action = game.sample_from_action_mask(mask)
         game.agent_observe(s)
         game.critic_observe(s)
         assert game.is_valid(s, action)
@@ -67,7 +44,7 @@ def test_game_render(seed, game, depth=200):
     canvas = game.get_canvas()
     while depth >= 0 and not terminal:
         mask = game.action_mask(s)
-        action = sample_from_action_mask(game, mask)
+        action = game.sample_from_action_mask(mask)
         game.render(canvas, s)
         s, _, terminal, _ = game.step(s, action)
         depth -= 1
@@ -93,7 +70,7 @@ def test_seeded_randomness(seed, game):
         # change seed like this
         seed = seed + 1
         mask = game.action_mask(s)
-        action = sample_from_action_mask(game, mask)
+        action = game.sample_from_action_mask(mask)
         assert equality(game.agent_observe(s), game.agent_observe(s2))
         assert equality(game.critic_observe(s), game.critic_observe(s2))
         torch.random.manual_seed(seed)

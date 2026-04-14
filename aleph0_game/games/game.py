@@ -45,17 +45,39 @@ class Game:
         """
         raise NotImplementedError
 
-    def agent_observe(self, state):
+    def action_mask(self, state):
         """
-        agent observations
+        possible actions to take
         Args:
             state: The state of the environment.
         """
         raise NotImplementedError
 
-    def action_mask(self, state):
+    def sample_from_action_mask(self, action_mask):
+        if self.has_special_actions():
+            board_mask, special_mask = action_mask
+            assert board_mask.dtype == torch.bool
+            assert special_mask.dtype == torch.bool
+
+            # easier if swapped here, since we can test action < len(special_mask)
+            combined_mask = torch.concat((special_mask, board_mask.flatten()))
+            action = torch.multinomial(combined_mask.to(torch.float), 1, True)
+            if action < len(special_mask):
+                return (-torch.ones(len(board_mask.shape), dtype=torch.int), action)
+            else:
+                return (
+                    torch.cat(torch.unravel_index(action - len(special_mask), board_mask.shape)),
+                    torch.tensor(-1),
+                )
+        else:
+            # action mask is a tensor
+            assert action_mask.dtype == torch.bool
+            action = torch.multinomial(action_mask.flatten().to(torch.float), 1, True)
+            return torch.cat(torch.unravel_index(action, action_mask.shape))
+
+    def agent_observe(self, state):
         """
-        possible actions to take
+        agent observations
         Args:
             state: The state of the environment.
         """
