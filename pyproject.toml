@@ -17,7 +17,7 @@ dependencies = [
     'torch',
     'numpy',
     'scipy',
-    'matplotlib'
+    'matplotlib',
 ]
 
 [project.urls]
