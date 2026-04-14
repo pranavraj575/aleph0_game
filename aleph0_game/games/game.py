@@ -1,6 +1,13 @@
 import torch
 
 
+def tense_cast(x):
+    if torch.is_tensor(x):
+        return x
+    else:
+        return torch.tensor(x)
+
+
 class Game:
     def has_special_actions(self):
         return False
@@ -25,9 +32,9 @@ class Game:
         """
         if self.has_special_actions():
             board_a, special_a = action
-            return self.step(state, (torch.tensor(board_a), torch.tensor(special_a)))
+            return self.step(state, (tense_cast(board_a), tense_cast(special_a)))
         else:
-            return self.step(state, torch.tensor(action))
+            return self.step(state, tense_cast(action))
 
     def step(self, state, action):
         """
@@ -90,6 +97,12 @@ class Game:
             state: The state of the environment.
         """
         raise NotImplementedError
+
+    def board_action_dim(self, state):
+        mask = self.action_mask(state=state)
+        if self.has_special_actions():
+            mask, _ = mask
+        return len(mask.shape)
 
     def example_agent_obs(self):
         # This assumes the environment provides same observation shape to both agents

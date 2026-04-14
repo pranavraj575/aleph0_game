@@ -141,6 +141,9 @@ class Chess5d(Game):
     def num_agents(self):
         return 2
 
+    def board_action_dim(self, state):
+        return 4
+
     def init_state(self):
         back_rank = torch.tensor(
             [
@@ -966,6 +969,9 @@ class Chess2d(Chess5d):
 
     def has_special_actions(self):
         return False
+
+    def board_action_dim(self, state):
+        return 2
 
     def _piece_possible_moves(self, board, piece_idx):
         for idx in super()._piece_possible_moves(board, piece_idx):

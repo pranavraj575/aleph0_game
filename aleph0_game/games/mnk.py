@@ -13,6 +13,9 @@ class MNK(Game):
     def num_agents(self):
         return 2
 
+    def board_action_dim(self, state):
+        return 2
+
     def init_state(self):
         # (board, player)
         return torch.zeros((self.m, self.n)), 1

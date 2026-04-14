@@ -84,6 +84,9 @@ class Jenga(Game):
     def num_agents(self):
         return self.num_players
 
+    def board_action_dim(self, state):
+        return 2
+
     def init_state(self):
         return State(
             tower=self.generate_initial_tower(),
