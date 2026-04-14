@@ -24,3 +24,13 @@ If installed with dev, can test installation, and reformat before pushing:
 python -m pytest
 ruff check; ruff format; pyright
 ```
+
+## Play games
+
+To play a game (either against other humans or against a random player), use `aleph0_game/scripts/play_game.py`
+
+Usage example:
+
+```shell
+python aleph0_game/scripts/play_game.py jenga --args players:3 --random_players 1 2
+```

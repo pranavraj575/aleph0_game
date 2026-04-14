@@ -217,7 +217,7 @@ class Jenga(Game):
                     # render the frames of the block placement
                     mean = torch.tensor([0, 0, self.std_block_size[2] * (h + 0.5)])
                     # offset the mean in the appropriate direction
-                    mean[h % 2 + 1] += (i - (self.k - 1) / 2) * (self.std_block_size[1] + self.std_block_spacing)
+                    mean[(h + 1) % 2] += (i - (self.k - 1) / 2) * (self.std_block_size[1] + self.std_block_spacing)
                     yaw = torch.tensor(((h % 2) * torch.pi / 2,))
                     block = self.generate_random_blocks(
                         means=mean.unsqueeze(0),

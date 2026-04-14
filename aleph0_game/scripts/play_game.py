@@ -15,20 +15,25 @@ def play_game(
     terminal = False
     total_rwd = torch.zeros(game.num_agents())
     while not terminal:
-        game.render(canvas, state)
         mask = game.action_mask(state)
         player = game.player(state)
         if player in random_players:
             action = game.sample_from_action_mask(mask)
+            if game.has_special_actions():
+                action = (tuple(map(int, action[0])), int(action[1]))
+            else:
+                action = tuple(map(int, action))
+            print("opponent played action", action)
         else:
+            game.render(canvas, state)
             if game.has_special_actions():
                 board_actions, special_actions = mask
                 board_actions = torch.where(board_actions)
-                special_actions = [int(k) for k in torch.where(special_actions)[0]]
+                special_actions = list(map(int, torch.where(special_actions)[0]))
             else:
                 board_actions = torch.where(mask)
                 special_actions = []
-            board_actions = [tuple(int(k) for k in idx) for idx in list(zip(*board_actions))]
+            board_actions = [tuple(map(int, idx)) for idx in list(zip(*board_actions))]
             print("legal board actions:")
 
             print(*tuple(f"{i}: {idx}" for i, idx in enumerate(board_actions)), sep="\n")
@@ -74,6 +79,7 @@ if __name__ == "__main__":
     args = p.parse_args()
     Game = implemented_games[args.game]
     game_kwargs = [arg.split(":") for arg in args.args]
+    assert all(len(t) == 2 for t in game_kwargs), "--args must be formatted like arg1:value arg2:value ..."
     game_kwargs = {k: ast.literal_eval(v) for k, v in game_kwargs}
     game = Game(**game_kwargs)
     play_game(game=game, random_players=args.random_players)
