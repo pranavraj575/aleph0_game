@@ -114,7 +114,7 @@ class Jenga(Game):
         else:
             mean = torch.tensor([0, 0, self.std_block_size[2] * (action[0] + 0.5)])
             # offset the mean in the appropriate direction
-            mean[action[0] % 2 + 1] += (action[1] - (self.k - 1) / 2) * (self.std_block_size[1] + self.std_block_spacing)
+            mean[(action[0] + 1) % 2] += (action[1] - (self.k - 1) / 2) * (self.std_block_size[1] + self.std_block_spacing)
             yaw = torch.tensor(((action[0] % 2) * torch.pi / 2,))
             new_tower[*action] = self.generate_random_blocks(
                 means=mean.unsqueeze(0),
@@ -234,6 +234,14 @@ class Jenga(Game):
                         only_frame=True,
                     )
         canvas.set_aspect("equal")
+
+    def save_screenshot(self, state, output_file):
+        plt.ion()
+        plt.show()
+        canvas = plt.figure().add_subplot(projection="3d")
+        self.render(canvas, state)
+        plt.savefig(output_file)
+        plt.close()
 
     def render_block(self, block, ax, only_frame, label=None, **plot_kwargs):
         vertices = block[9:17].reshape(-1, 2)

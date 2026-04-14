@@ -1,7 +1,10 @@
 import argparse
 import ast
+import os
+import shutil
 
 import torch
+from PIL import Image
 
 from aleph0_game import games
 
@@ -9,12 +12,20 @@ from aleph0_game import games
 def play_game(
     game: games.Game,
     random_players,
+    screenshot_dir=None,
+    render=True,
 ):
-    canvas = game.get_canvas()
+    if render:
+        canvas = game.get_canvas()
+    else:
+        canvas = None
     state = game.init_state()
     terminal = False
     total_rwd = torch.zeros(game.num_agents())
+    i = 0
     while not terminal:
+        if screenshot_dir is not None:
+            game.save_screenshot(state, os.path.join(screenshot_dir, str(i)))
         mask = game.action_mask(state)
         player = game.player(state)
         if player in random_players:
@@ -25,7 +36,8 @@ def play_game(
                 action = tuple(map(int, action))
             print("opponent played action", action)
         else:
-            game.render(canvas, state)
+            if render:
+                game.render(canvas, state)
             if game.has_special_actions():
                 board_actions, special_actions = mask
                 board_actions = torch.where(board_actions)
@@ -56,9 +68,27 @@ def play_game(
             else:
                 action = (-torch.ones(game.board_action_dim(state=state), dtype=torch.int), special_actions[idx - len(board_actions)])
         state, rwd, terminal, aux = game.step_weak_type(state=state, action=action)
+        i += 1
         total_rwd += rwd
+
+    if screenshot_dir is not None:
+        game.save_screenshot(state, os.path.join(screenshot_dir, str(i)))
+    if render:
+        game.close_canvas(canvas)
     print("game completed, rewards are:")
     print(total_rwd.numpy())
+
+
+def create_gif(image_paths, output_gif_path, duration=200):
+    images = [Image.open(image_path) for image_path in image_paths]
+    # Save as GIF
+    images[0].save(
+        output_gif_path,
+        save_all=True,
+        append_images=images[1:],
+        duration=duration,
+        loop=0,  # 0 means infinite loop
+    )
 
 
 if __name__ == "__main__":
@@ -73,13 +103,37 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser(description="test game playing/rendering")
 
     p.add_argument("game", choices=list(implemented_games.keys()), help="game to play")
-
     p.add_argument("--args", required=False, type=str, default=[], nargs="+", help="keyword arguments of game, in format arg1:value1 arg2:value2 ...")
+    p.add_argument("--no_render", action="store_true", help="dont render the game")
+    p.add_argument("--screenshot_dir", required=False, type=str, help="save screenshots to a directory")
+    p.add_argument("--overwrite", action="store_true", help="overwrite screenshot dir (if exists)")
+    p.add_argument("--save_gif", required=False, type=str, help="save gif of the screenshots to this file")
+    p.add_argument("--duration", required=False, type=int, default=200, help="duration (in ms) of each img in gif")
     p.add_argument("--random_players", required=False, type=int, default=[], nargs="+", help="indices of players that will be making random moves")
+    p.add_argument("--seed", required=False, type=int, default=69, help="random seed for random players")
     args = p.parse_args()
     Game = implemented_games[args.game]
     game_kwargs = [arg.split(":") for arg in args.args]
     assert all(len(t) == 2 for t in game_kwargs), "--args must be formatted like arg1:value arg2:value ..."
     game_kwargs = {k: ast.literal_eval(v) for k, v in game_kwargs}
     game = Game(**game_kwargs)
-    play_game(game=game, random_players=args.random_players)
+
+    if args.screenshot_dir is not None:
+        if not args.overwrite:
+            assert not os.path.exists(args.screenshot_dir), f"directory {args.screenshot_dir} exists already"
+        if os.path.exists(args.screenshot_dir):
+            shutil.rmtree(args.screenshot_dir)
+        os.makedirs(args.screenshot_dir, exist_ok=True)
+    torch.random.manual_seed(args.seed)
+    play_game(game=game, random_players=args.random_players, screenshot_dir=args.screenshot_dir, render=not args.no_render)
+    if args.save_gif is not None:
+        assert args.screenshot_dir is not None, "if saving gif, screenshot_dir must be specified"
+        os.makedirs(os.path.dirname(args.save_gif), exist_ok=True)
+        # all filenames should be {i}.xxx
+        image_paths = sorted(os.listdir(args.screenshot_dir), key=lambda fn: int(fn.split(".")[0]))
+        image_paths = list(map(lambda x: os.path.join(args.screenshot_dir, x), image_paths))
+        create_gif(
+            image_paths=image_paths,
+            output_gif_path=args.save_gif,
+            duration=args.duration,
+        )
