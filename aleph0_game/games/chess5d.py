@@ -174,7 +174,9 @@ class Chess5d(Game):
         )
 
     def player(self, state):
-        return state.player
+        # state.player is 1 or -1
+        # change this to p0 (1) and p1 (-1)
+        return int((1 - state.player) // 2)
 
     def agent_observe(self, state):
         # TODO: potentially flip board for opponent
