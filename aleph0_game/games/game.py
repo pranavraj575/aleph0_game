@@ -10,9 +10,15 @@ def tense_cast(x):
 
 class Game:
     def has_special_actions(self):
+        """
+        whether the game has special actions that do not correspond to board tiles (i.e. resign, end turn, etc)
+        """
         return False
 
     def num_agents(self):
+        """
+        number of players in the game
+        """
         raise NotImplementedError
 
     def init_state(self):
@@ -24,6 +30,11 @@ class Game:
         raise NotImplementedError
 
     def player(self, state):
+        """
+        current player at state
+        :param state:
+        :return:
+        """
         raise NotImplementedError
 
     def step_weak_type(self, state, action):
@@ -61,6 +72,9 @@ class Game:
         raise NotImplementedError
 
     def sample_from_action_mask(self, action_mask):
+        """
+        samples action uniformly at random from action mask
+        """
         if self.has_special_actions():
             board_mask, special_mask = action_mask
             assert board_mask.dtype == torch.bool
@@ -99,25 +113,42 @@ class Game:
         raise NotImplementedError
 
     def board_action_dim(self, state):
+        """
+        number of dimnsions that the board action has
+            usually fixed, but can be dependant on state
+        """
         mask = self.action_mask(state=state)
         if self.has_special_actions():
             mask, _ = mask
         return len(mask.shape)
 
     def example_agent_obs(self):
+        """
+        produces an example agent observation
+        """
         # This assumes the environment provides same observation shape to both agents
         state = self.init_state()
         return self.agent_observe(state=state)
 
     def example_action_mask(self):
+        """
+        produces an example action mask
+        """
         state = self.init_state()
         return self.action_mask(state=state)
 
     def example_critic_obs(self):
+        """
+        produces an example critic observation
+        """
         state = self.init_state()
         return self.critic_observe(state=state)
 
     def is_valid(self, state, action):
+        """
+        whether a specified action is valid from a state
+            used in debugging/testing
+        """
         if self.has_special_actions():
             board_action, special_action = action
             board_mask, special_mask = self.action_mask(state)
@@ -143,5 +174,14 @@ class Game:
         """
         raise NotImplementedError
 
+    def save_screenshot(self, state, output_file):
+        """
+        saves rendered image to a specified output file
+        """
+        raise NotImplementedError
+
     def close_canvas(self, canvas):
+        """
+        closes canvas opened by self.get_canvas()
+        """
         pass
