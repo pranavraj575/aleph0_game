@@ -5,8 +5,8 @@ import pytest
 import torch
 from test_games import sample_from_action_mask
 
-from src.games import Chess2d, Chess5d
-from src.games.chess5d import DAG_subgraphs_w_at_most_one_outgoing_edge, all_subsets
+from aleph0_game.games import Chess2d, Chess5d
+from aleph0_game.games.chess5d import DAG_subgraphs_w_at_most_one_outgoing_edge, all_subsets
 
 en_passant_tests = (
     [

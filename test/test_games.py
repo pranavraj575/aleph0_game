@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from src.games import F_MNK, MNK, Chess2d, Chess5d, Game, Jenga, TicTacToe
+from aleph0_game.games import F_MNK, MNK, Chess2d, Chess5d, Game, Jenga, TicTacToe
 
 small_games = [
     TicTacToe(),
