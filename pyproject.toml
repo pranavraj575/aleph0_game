@@ -15,7 +15,6 @@ description = "implementation of aleph0 games, which have a variable size discre
 readme = "README.md"
 dependencies = [
     'torch',
-    'torchConvNd',
     'numpy',
     'scipy',
     'matplotlib'
@@ -44,9 +43,7 @@ extend-select = [
     "I",
 ]
 
-exclude = ["src/games/chess/*"]
 [tool.pyright]
-exclude = ["src/games/chess/"]
 useLibraryCodeForTypes = false
 reportPrivateImportUsage = false
 reportIncompatibleMethodOverride = false
