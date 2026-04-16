@@ -36,7 +36,7 @@ def test_game_playthrough(seed, game):
 
 
 @pytest.mark.parametrize("seed", list(range(1)))
-@pytest.mark.parametrize("game", [Chess5d()])
+@pytest.mark.parametrize("game", all_games)
 def test_game_render(seed, game, depth=200):
     torch.random.manual_seed(seed)
     s = game.init_state()
