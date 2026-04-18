@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from aleph0_game.games import F_MNK, MNK, Chess2d, Chess5d, Jenga, TicTacToe
+from aleph0_game.games import F_MNK, MNK, Checkers, Chess2d, Chess5d, Jenga, TicTacToe
 
 small_games = [
     TicTacToe(),
@@ -13,6 +13,7 @@ small_games = [
     Jenga(initial_height=5),
     Jenga(deterministic=True),
     F_MNK(3, 3, 3),
+    Checkers(),
 ]
 all_games = small_games + [
     Chess5d(),
