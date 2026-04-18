@@ -35,6 +35,7 @@ class PyspielGame(Game):
     def init_state(self):
         # (board, player)
         pyspiel_state: pyspiel.State = self.pyspiel_game.new_initial_state()
+        pyspiel_state, r = self.advance_past_chance(pyspiel_state)
         return State(state=pyspiel_state.serialize(), index_actions=())
 
     def actions_per_pyspiel_action(self):
@@ -131,7 +132,7 @@ class Checkers(PyspielGame):
     def actions_per_pyspiel_action(self):
         return 2
 
-    def convert_to_pyspiel_action(self, pyspiel_state, actions):
+    def convert_to_pyspiel_actions(self, pyspiel_state, actions):
         p, q = actions
         return (pyspiel_state.string_to_action(self.convert_idx_to_square(p) + self.convert_idx_to_square(q)),)
 
