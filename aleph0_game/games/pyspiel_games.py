@@ -43,9 +43,9 @@ class PyspielGame(Game):
         """
         raise NotImplementedError
 
-    def convert_to_pyspiel_action(self, state, actions):
+    def convert_to_pyspiel_actions(self, state, actions):
         """
-        converts a list of (self.actions_per_pyspiel_action()) indices to a single pyspiel action
+        converts a list of (self.actions_per_pyspiel_action()) indices to a list of pyspiel actions
         :param actions:
         :return:
         """
@@ -56,8 +56,9 @@ class PyspielGame(Game):
         rewards = torch.zeros(self.num_agents())
         if len(new_index_actions) == self.actions_per_pyspiel_action():
             pyspiel_state = self.pyspiel_game.deserialize_state(state.state)
-            pyspiel_state.apply_action(self.convert_to_pyspiel_action(pyspiel_state, new_index_actions))
-            rewards = pyspiel_state.rewards()
+            for pyspiel_action in self.convert_to_pyspiel_actions(pyspiel_state, new_index_actions):
+                pyspiel_state.apply_action(pyspiel_action)
+                rewards += torch.tensor(pyspiel_state.rewards())
             pyspiel_state, r = self.advance_past_chance(pyspiel_state)
             rewards += r
             terminal = pyspiel_state.is_terminal()
@@ -107,18 +108,7 @@ class Checkers(PyspielGame):
     def __init__(self):
         super().__init__(game_string="checkers")
 
-    def convert_square_to_idx(self, square):
-        return torch.tensor((int(square[1]) - 1, ord(square[0]) - 97))
-
-    def convert_idx_to_square(self, idx):
-        return str(chr(idx[1] + 97)) + str(int(idx[0] + 1))
-
     def action_mask(self, state: State):
-        """
-        possible actions to take
-        Args:
-            state: The state of the environment.
-        """
         pyspiel_state: pyspiel.State = self.pyspiel_game.deserialize_state(state.state)
         legal_actions = pyspiel_state.legal_actions()
         action_mask = torch.zeros((8, 8), dtype=torch.bool)
@@ -135,9 +125,18 @@ class Checkers(PyspielGame):
 
         return action_mask
 
+    def board_action_dim(self, state):
+        return 2
+
     def actions_per_pyspiel_action(self):
         return 2
 
     def convert_to_pyspiel_action(self, pyspiel_state, actions):
         p, q = actions
-        return pyspiel_state.string_to_action(self.convert_idx_to_square(p) + self.convert_idx_to_square(q))
+        return (pyspiel_state.string_to_action(self.convert_idx_to_square(p) + self.convert_idx_to_square(q)),)
+
+    def convert_square_to_idx(self, square):
+        return torch.tensor((int(square[1]) - 1, ord(square[0]) - 97))
+
+    def convert_idx_to_square(self, idx):
+        return str(chr(idx[1] + 97)) + str(int(idx[0] + 1))
