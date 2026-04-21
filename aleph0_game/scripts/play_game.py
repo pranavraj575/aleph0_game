@@ -98,7 +98,7 @@ def create_gif(image_paths, output_gif_path, duration=200):
 
     # get background color
     # im.getcolors() returns unsorted list of (count, color)
-    colors = images[0].getcolors()
+    colors = images[0].getcolors(maxcolors=images[0].width * images[0].height)
     assert colors is not None
     _, background_color = max(colors, key=lambda x: x[0])
 

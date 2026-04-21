@@ -240,7 +240,7 @@ class Jenga(Game):
         plt.show()
         canvas = plt.figure().add_subplot(projection="3d")
         self.render(canvas, state)
-        plt.savefig(output_file)
+        plt.savefig(output_file, bbox_inches="tight")
         plt.close()
 
     def render_block(self, block, ax, only_frame, label=None, **plot_kwargs):
