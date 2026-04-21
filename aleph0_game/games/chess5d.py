@@ -3,6 +3,7 @@ import itertools
 from collections import defaultdict
 
 import torch
+from PIL import Image, ImageDraw, ImageFont
 
 from .game import Game
 
@@ -897,6 +898,24 @@ class Chess5d(Game):
             s += f"PIECE HELD: {self.piece_to_str(state.piece_held)} from {state.held_piece_origin.numpy()}\n"
         print(s)
 
+    def save_screenshot(self, state, output_file, **kwargs):
+
+        ascii_text = self.get_game_str(state=state)
+        im = Image.new("RGBA", (0, 0), "white")
+
+        font = ImageFont.truetype("Pillow/Tests/fonts/FreeMono.ttf", 40)
+
+        draw = ImageDraw.Draw(im)
+        _, _, W, H = draw.textbbox((0, 0), ascii_text, font=font)
+
+        im = Image.new("RGBA", (int(W), int(H)), "white")
+        draw = ImageDraw.Draw(im)
+        draw.text((0, 0), ascii_text, fill="black", font=font)
+
+        if not output_file.lower().endswith(".png"):
+            output_file = output_file + ".png"
+        im.save(output_file, "PNG")
+
     def get_game_str(self, state):
         s = ""
         for dim in range(state.board.shape[1] - 1, -1, -1):
@@ -1005,8 +1024,7 @@ class Chess2d(Chess5d):
 
             s += str(row)
             s += "\n"
-        s += "\n\n"
-        return s
+        return s[:-1]
 
     def step_weak_type(self, state, action):
         """

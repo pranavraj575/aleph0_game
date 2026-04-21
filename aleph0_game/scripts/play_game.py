@@ -14,6 +14,7 @@ def play_game(
     random_players,
     screenshot_dir=None,
     render=True,
+    max_depth=float("inf"),
 ):
     if render:
         canvas = game.get_canvas()
@@ -34,7 +35,7 @@ def play_game(
                 action = (tuple(map(int, action[0])), int(action[1]))
             else:
                 action = tuple(map(int, action))
-            print("opponent played action", action)
+            print(f"step {i}: opponent played action {action}")
         else:
             if render:
                 game.render(canvas, state)
@@ -69,6 +70,8 @@ def play_game(
                 action = (-torch.ones(game.board_action_dim(state=state), dtype=torch.int), special_actions[idx - len(board_actions)])
         state, rwd, terminal, aux = game.step_weak_type(state=state, action=action)
         i += 1
+        if i > max_depth:
+            break
         total_rwd += rwd
 
     if screenshot_dir is not None:
@@ -81,8 +84,20 @@ def play_game(
 
 def create_gif(image_paths, output_gif_path, duration=200):
     images = [Image.open(image_path) for image_path in image_paths]
+    if all(im.size == images[0].size for im in images):
+        # no size shenanigans needed
+        images[0].save(
+            output_gif_path,
+            save_all=True,
+            append_images=images[1:],
+            duration=duration,
+            loop=0,  # 0 means infinite loop
+        )
+    W, H = max([im.width for im in images]), max([im.height for im in images])
+    im = Image.new(mode=images[0].mode, size=(W, H))
+    im.paste(images[0])
     # Save as GIF
-    images[0].save(
+    im.save(
         output_gif_path,
         save_all=True,
         append_images=images[1:],
@@ -109,6 +124,7 @@ if __name__ == "__main__":
     p.add_argument("--overwrite", action="store_true", help="overwrite screenshot dir (if exists)")
     p.add_argument("--save_gif", required=False, type=str, help="save gif of the screenshots to this file")
     p.add_argument("--duration", required=False, type=int, default=200, help="duration (in ms) of each img in gif")
+    p.add_argument("--max_depth", required=False, type=int, default=-1, help="maximum number of moves")
     p.add_argument("--random_players", required=False, type=int, default=[], nargs="+", help="indices of players that will be making random moves")
     p.add_argument("--seed", required=False, type=int, default=69, help="random seed for random players")
     args = p.parse_args()
@@ -125,7 +141,13 @@ if __name__ == "__main__":
             shutil.rmtree(args.screenshot_dir)
         os.makedirs(args.screenshot_dir, exist_ok=True)
     torch.random.manual_seed(args.seed)
-    play_game(game=game, random_players=args.random_players, screenshot_dir=args.screenshot_dir, render=not args.no_render)
+    play_game(
+        game=game,
+        random_players=args.random_players,
+        screenshot_dir=args.screenshot_dir,
+        render=not args.no_render,
+        max_depth=args.max_depth if args.max_depth >= 0 else float("inf"),
+    )
     if args.save_gif is not None:
         assert args.screenshot_dir is not None, "if saving gif, screenshot_dir must be specified"
         os.makedirs(os.path.dirname(args.save_gif), exist_ok=True)

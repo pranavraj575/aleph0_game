@@ -174,7 +174,7 @@ class Game:
         """
         raise NotImplementedError
 
-    def save_screenshot(self, state, output_file):
+    def save_screenshot(self, state, output_file, **kwargs):
         """
         saves rendered image to a specified output file
         """

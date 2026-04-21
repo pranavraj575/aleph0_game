@@ -235,7 +235,7 @@ class Jenga(Game):
                     )
         canvas.set_aspect("equal")
 
-    def save_screenshot(self, state, output_file):
+    def save_screenshot(self, state, output_file, **kwargs):
         plt.ion()
         plt.show()
         canvas = plt.figure().add_subplot(projection="3d")
