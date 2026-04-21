@@ -893,22 +893,19 @@ class Chess5d(Game):
 
     def render(self, canvas, state):
         s = self.get_game_str(state)
-        s += f"PLAYER {(1 - state.player) // 2}\n"
-        if state.piece_held != 0:
-            s += f"PIECE HELD: {self.piece_to_str(state.piece_held)} from {state.held_piece_origin.numpy()}\n"
         print(s)
 
     def save_screenshot(self, state, output_file, **kwargs):
 
         ascii_text = self.get_game_str(state=state)
-        im = Image.new("RGBA", (0, 0), "white")
+        im = Image.new("RGB", (0, 0), "white")
 
         font = ImageFont.truetype("Pillow/Tests/fonts/FreeMono.ttf", 40)
 
         draw = ImageDraw.Draw(im)
         _, _, W, H = draw.textbbox((0, 0), ascii_text, font=font)
 
-        im = Image.new("RGBA", (int(W), int(H)), "white")
+        im = Image.new("RGB", (int(W), int(H)), "white")
         draw = ImageDraw.Draw(im)
         draw.text((0, 0), ascii_text, fill="black", font=font)
 
@@ -921,7 +918,7 @@ class Chess5d(Game):
         for dim in range(state.board.shape[1] - 1, -1, -1):
             if dim == state.center_timeline:
                 s += "(CENTER) "
-            s += f"D {dim}:\n"
+            s += f"DIM {dim}:\n"
             for i in range(self.BOARD_SIZE - 1, -1, -1):
                 rows = state.board[:, dim, i, :].cpu().numpy()
                 row = "||".join("".join(map(self.piece_to_str, row)) for row in rows)
@@ -929,6 +926,9 @@ class Chess5d(Game):
                 s += str(row)
                 s += "\n"
             s += "\n\n"
+        s += f"PLAYER {(1 - state.player) // 2}\n"
+        if state.piece_held != 0:
+            s += f"PIECE HELD: {self.piece_to_str(state.piece_held)} from {state.held_piece_origin.numpy()}\n"
         return s
 
     def piece_to_str(self, piece):

@@ -85,7 +85,7 @@ def play_game(
 def create_gif(image_paths, output_gif_path, duration=200):
     images = [Image.open(image_path) for image_path in image_paths]
     if all(im.size == images[0].size for im in images):
-        # no size shenanigans needed
+        # no size shenanigans needed, just save as gif
         images[0].save(
             output_gif_path,
             save_all=True,
@@ -93,16 +93,25 @@ def create_gif(image_paths, output_gif_path, duration=200):
             duration=duration,
             loop=0,  # 0 means infinite loop
         )
+
     W, H = max([im.width for im in images]), max([im.height for im in images])
-    im = Image.new(mode=images[0].mode, size=(W, H))
-    im.paste(images[0])
-    # Save as GIF
-    im.save(
+
+    # get background color
+    # im.getcolors() returns unsorted list of (count, color)
+    colors = images[0].getcolors()
+    assert colors is not None
+    _, background_color = max(colors, key=lambda x: x[0])
+
+    # resize all images to the maximum image size
+    resized_imgs = [Image.new(mode=im.mode, size=(W, H), color=background_color) for im in images]
+    for im, canvas_im in zip(images, resized_imgs):
+        canvas_im.paste(im)
+    resized_imgs[0].save(
         output_gif_path,
         save_all=True,
-        append_images=images[1:],
+        append_images=resized_imgs[1:],
         duration=duration,
-        loop=0,  # 0 means infinite loop
+        loop=0,
     )
 
 
