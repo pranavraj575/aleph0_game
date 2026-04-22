@@ -915,17 +915,38 @@ class Chess5d(Game):
 
     def get_game_str(self, state):
         s = ""
+        active_rng = self.get_active_board_range(board=state.board, center_timeline=state.center_timeline)
+        present = self.get_present(board=state.board, center_timeline=state.center_timeline)
+
+        length_to_place_present = -1
+        present_token = "%"
+        nl = ""
+
         for dim in range(state.board.shape[1] - 1, -1, -1):
             if dim == state.center_timeline:
                 s += "(CENTER) "
+            if dim < active_rng[0] or dim >= active_rng[1]:
+                s += "(INACTIVE)"
             s += f"DIM {dim}:\n"
             for i in range(self.BOARD_SIZE - 1, -1, -1):
                 rows = state.board[:, dim, i, :].cpu().numpy()
                 row = "||".join("".join(map(self.piece_to_str, row)) for row in rows)
+                sp = str(row)
 
-                s += str(row)
+                # calculate present and insert present token at right place
+                if length_to_place_present == -1:
+                    past_rows = state.board[: present + 1, 0, 0, :].cpu().numpy()
+                    past_row = "||".join("".join(map(self.piece_to_str, row)) for row in past_rows)
+                    length_to_place_present = len(past_row) + 1
+                    nl = " " * length_to_place_present + present_token + "\n"
+
+                if len(sp) < length_to_place_present:
+                    sp = sp + " " * (length_to_place_present - len(sp))
+                s += sp[:length_to_place_present] + present_token + sp[length_to_place_present:]
                 s += "\n"
-            s += "\n\n"
+            s += "\n" + nl
+
+        s = nl[: -(1 + len(f"PRESENT TIME{present_token}"))] + f"PRESENT TIME{present_token}\n" + nl + s
         s += f"PLAYER {(1 - state.player) // 2}\n"
         if state.piece_held != 0:
             s += f"PIECE HELD: {self.piece_to_str(state.piece_held)} from {state.held_piece_origin.numpy()}\n"
