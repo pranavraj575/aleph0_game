@@ -116,3 +116,13 @@ To replicate the example shown:
 ```shell
 python aleph0_game/scripts/play_game.py chess2d --overwrite --save_gif images/sample_chess2d_game.gif --duration 300 --random_players 0 1 --screenshot_dir output/chess2d --no_render
 ```
+
+### Checkers
+
+Calls checkers game in [open_spiel](https://github.com/google-deepmind/open_spiel). 
+
+![](https://github.com/pranavraj575/aleph0_game/blob/main/images/sample_checkers_game.gif)
+
+```shell
+python aleph0_game/scripts/play_game.py checkers --overwrite --save_gif images/sample_checkers_game.gif --duration 300 --random_players 0 1 --screenshot_dir output/checkers --no_render
+```

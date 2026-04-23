@@ -123,6 +123,7 @@ if __name__ == "__main__":
         "tic-tac-toe": games.TicTacToe,
         "mnk": games.MNK,
         "resign_mnk": games.F_MNK,
+        "checkers": games.Checkers,
     }
     p = argparse.ArgumentParser(description="test game playing/rendering")
 

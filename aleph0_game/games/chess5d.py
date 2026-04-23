@@ -1,6 +1,7 @@
 import dataclasses
 import itertools
 from collections import defaultdict
+
 import torch
 
 from .game import Game
