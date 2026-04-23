@@ -95,14 +95,21 @@ class PyspielGame(Game):
         pyspiel_state: pyspiel.State = self.pyspiel_game.deserialize_state(state.state)
         return torch.tensor(pyspiel_state.observation_tensor()).reshape(self.pyspiel_game.observation_tensor_shape())
 
-    def render(self, canvas, state):
-        # canvas is not needed, just print it to terminal
+    def get_game_str(self, state):
         pyspiel_state: pyspiel.State = self.pyspiel_game.deserialize_state(state.state)
         if pyspiel_state.is_terminal():
-            print("TERMINAL:")
-            print(pyspiel_state)
+            s = "TERMINAL:\n" + str(pyspiel_state)
         else:
-            print(pyspiel_state.observation_string())
+            s = pyspiel_state.observation_string()
+        return s
+
+    def render(self, canvas, state):
+        # canvas is not needed, just print it to terminal
+        print(self.get_game_str(state))
+
+    def save_screenshot(self, state, output_file, **kwargs):
+        ascii_text = self.get_game_str(state=state)
+        self.save_screenshot_ascii(ascii_text=ascii_text, output_file=output_file)
 
 
 class Checkers(PyspielGame):

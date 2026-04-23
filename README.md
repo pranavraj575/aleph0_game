@@ -52,10 +52,6 @@ python aleph0_game/scripts/play_game.py jenga --args players:3 --random_players 
 ## Games
 
 ### Jenga
-![](https://github.com/pranavraj575/aleph0_game/blob/main/images/sample_jenga_game.gif)
-
-![](https://github.com/pranavraj575/aleph0_game/blob/main/images/sample_large_jenga_game.gif)
-
 Implemented a lightweight approximation of Jenga with no physics simulation.
 A player moves by choosing a block to remove, then selecting a target place location.
 The block will be placed with some randomness (unless the deterministic flag is enabled, as in the demos).
@@ -69,7 +65,12 @@ The following check is used for determining if the tower falls:
   * The probability of the tower falling at level _h_ is lower the further the COM is from the convex hull.
   * Probability is 0.5 if COM lies directly above the boundary.
   * The probabilities for each _h_ are multiplied together to compute overall probability of tower falling. 
+
 This check is done twice on each player's turn: after removing a block, and after placing a block.
+
+![](https://github.com/pranavraj575/aleph0_game/blob/main/images/sample_jenga_game.gif)
+
+![](https://github.com/pranavraj575/aleph0_game/blob/main/images/sample_large_jenga_game.gif)
 
 To replicate the examples shown:
 
@@ -78,12 +79,12 @@ python aleph0_game/scripts/play_game.py jenga --args initial_height:5 determinis
 python aleph0_game/scripts/play_game.py jenga --args initial_height:18 deterministic:True --save_gif images/sample_large_jenga_game.gif --duration 420 --random_players 0 1 --screenshot_dir output/jenga_large --seed 420 --overwrite --no_render
 ```
 ### 5D Chess
-![](https://github.com/pranavraj575/aleph0_game/blob/main/images/sample_chess5d_game.gif)
 
 Implemented [5D chess with multiverse time travel](https://www.5dchesswithmultiversetimetravel.com/), with some caveats:
-* The game ends when a king is captured, instead of at checkmate.
-  This is done to reduce computation time, since otherwise each turn would have to compute all squares attacked by the opponent.
-* The spot an opponent king castled through can also be captured by a piece on the same dimension in the next timestep.
+* The game ends when a king is captured, instead of at checkmate. 
+  * This is done to reduce computation time, since otherwise each turn would have to compute all squares attacked by the opponent.
+  * This is equivalent to the original game if each player always captures a king given the opportunity.
+* The spots an opponent king castled through can also be captured by a piece on the same dimension in the next timestep.
 * If the `stalemate_is_win` flag is set to True (which it is by default), no stalemate check is necessary.
   * In this case, the player that captures the opponent king wins.
 * If the `stalemate_is_win` flag is set to False, a stalemate check must be done at the conclusion of the game:
@@ -94,7 +95,9 @@ Implemented [5D chess with multiverse time travel](https://www.5dchesswithmultiv
     The game ends in a player _i_ win (since player _i_-1 failed to get out of check).
   * Otherwise, this is a stalemate, and the game ends in a draw.
 * Since this check involves considering every sequence of moves that could constitute a turn, it is computationally expensive and turned off by default.
+  * There is a slight optimization where we do not need to check ALL permutations of moves that can make a turn. See `Chess5d.get_all_possible_turns` for details.
 
+![](https://github.com/pranavraj575/aleph0_game/blob/main/images/sample_chess5d_game.gif)
 
 To replicate the example shown:
 ```shell
@@ -102,11 +105,12 @@ python aleph0_game/scripts/play_game.py chess5d --overwrite --save_gif images/sa
 ```
 
 ### 2D Chess
-![](https://github.com/pranavraj575/aleph0_game/blob/main/images/sample_chess2d_game.gif)
 
-Implemented chess as a subclass of 5d chess. 
-Because of this, the game ends on the capture of a king (or upon 'capturing' a square that a king castled through on the previous move). 
+Implemented chess as a subclass of 5d chess.
+Because of this, the game ends on the capture of a king (or upon 'capturing' a square that a king castled through on the previous move).
 Stalemate and checkmate are correctly evalutated upon the game's end (i.e. `stalemate_is_win` flag is False by default).
+
+![](https://github.com/pranavraj575/aleph0_game/blob/main/images/sample_chess2d_game.gif)
 
 To replicate the example shown:
 ```shell

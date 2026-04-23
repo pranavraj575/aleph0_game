@@ -1,9 +1,7 @@
 import dataclasses
 import itertools
 from collections import defaultdict
-
 import torch
-from PIL import Image, ImageDraw, ImageFont
 
 from .game import Game
 
@@ -896,22 +894,8 @@ class Chess5d(Game):
         print(s)
 
     def save_screenshot(self, state, output_file, **kwargs):
-
         ascii_text = self.get_game_str(state=state)
-        im = Image.new("RGB", (0, 0), "white")
-
-        font = ImageFont.truetype("Pillow/Tests/fonts/FreeMono.ttf", 40)
-
-        draw = ImageDraw.Draw(im)
-        _, _, W, H = draw.textbbox((0, 0), ascii_text, font=font)
-
-        im = Image.new("RGB", (int(W), int(H)), "white")
-        draw = ImageDraw.Draw(im)
-        draw.text((0, 0), ascii_text, fill="black", font=font)
-
-        if not output_file.lower().endswith(".png"):
-            output_file = output_file + ".png"
-        im.save(output_file, "PNG")
+        self.save_screenshot_ascii(ascii_text=ascii_text, output_file=output_file)
 
     def get_game_str(self, state):
         s = ""

@@ -1,4 +1,5 @@
 import torch
+from PIL import Image, ImageDraw, ImageFont
 
 
 def tense_cast(x):
@@ -179,6 +180,22 @@ class Game:
         saves rendered image to a specified output file
         """
         raise NotImplementedError
+
+    def save_screenshot_ascii(self, ascii_text, output_file):
+        im = Image.new("RGB", (0, 0), "white")
+
+        font = ImageFont.truetype("Pillow/Tests/fonts/FreeMono.ttf", 40)
+
+        draw = ImageDraw.Draw(im)
+        _, _, W, H = draw.textbbox((0, 0), ascii_text, font=font)
+
+        im = Image.new("RGB", (int(W), int(H)), "white")
+        draw = ImageDraw.Draw(im)
+        draw.text((0, 0), ascii_text, fill="black", font=font)
+
+        if not output_file.lower().endswith(".png"):
+            output_file = output_file + ".png"
+        im.save(output_file, "PNG")
 
     def close_canvas(self, canvas):
         """
