@@ -175,6 +175,12 @@ class Game:
         """
         raise NotImplementedError
 
+    def close_canvas(self, canvas):
+        """
+        closes canvas opened by self.get_canvas()
+        """
+        pass
+
     def save_screenshot(self, state, output_file, **kwargs):
         """
         saves rendered image to a specified output file
@@ -196,9 +202,3 @@ class Game:
         if not output_file.lower().endswith(".png"):
             output_file = output_file + ".png"
         im.save(output_file, "PNG")
-
-    def close_canvas(self, canvas):
-        """
-        closes canvas opened by self.get_canvas()
-        """
-        pass
