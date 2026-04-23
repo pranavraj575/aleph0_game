@@ -129,7 +129,7 @@ Have you ever played tic-tac-toe with your life on the line?
 ![](https://github.com/pranavraj575/aleph0_game/blob/main/images/sample_mnk5_game.gif)
 
 
-To replicate the example shown:
+To replicate the examples shown:
 ```shell
 python aleph0_game/scripts/play_game.py tic-tac-toe --overwrite --save_gif images/sample_ttt_game.gif --duration 300 --random_players 0 1 --screenshot_dir output/tic_tac_toe --no_render
 python aleph0_game/scripts/play_game.py mnk --args m:4 n:4 k:4 --overwrite --save_gif images/sample_mnk4_game.gif --duration 300 --random_players 0 1 --screenshot_dir output/mnk4 --no_render
