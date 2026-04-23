@@ -98,7 +98,7 @@ class PyspielGame(Game):
     def get_game_str(self, state):
         pyspiel_state: pyspiel.State = self.pyspiel_game.deserialize_state(state.state)
         if pyspiel_state.is_terminal():
-            s = "TERMINAL:\n" + str(pyspiel_state)
+            s = str(pyspiel_state) + "\n(TERMINAL)"
         else:
             s = pyspiel_state.observation_string()
         return s

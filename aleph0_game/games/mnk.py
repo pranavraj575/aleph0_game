@@ -36,7 +36,9 @@ class MNK(Game):
 
     def player(self, state):
         _, player = state
-        return player
+        # state.player is 1 or -1
+        # change this to p0 (1) and p1 (-1)
+        return int((1 - player) // 2)
 
     def check_winner(self, board):
         for weights in [
@@ -76,7 +78,7 @@ class MNK(Game):
         board, _ = state
         return torch.eq(board.unsqueeze(0), torch.tensor([0, 1, -1]).reshape(-1, 1, 1))
 
-    def board_string(self, state):
+    def get_game_str(self, state):
         board, _ = state
         return (
             "-" * self.n
@@ -94,7 +96,11 @@ class MNK(Game):
 
     def render(self, canvas, state):
         # canvas is not needed, just print it to terminal
-        print(self.board_string(state))
+        print(self.get_game_str(state))
+
+    def save_screenshot(self, state, output_file, **kwargs):
+        ascii_text = self.get_game_str(state=state)
+        self.save_screenshot_ascii(ascii_text=ascii_text, output_file=output_file)
 
 
 class TicTacToe(MNK):

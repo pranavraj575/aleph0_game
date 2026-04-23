@@ -891,8 +891,7 @@ class Chess5d(Game):
     ###
 
     def render(self, canvas, state):
-        s = self.get_game_str(state)
-        print(s)
+        print(self.get_game_str(state))
 
     def save_screenshot(self, state, output_file, **kwargs):
         ascii_text = self.get_game_str(state=state)

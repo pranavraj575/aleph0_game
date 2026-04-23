@@ -35,7 +35,7 @@ def play_game(
                 action = (tuple(map(int, action[0])), int(action[1]))
             else:
                 action = tuple(map(int, action))
-            print(f"step {i}: opponent played action {action}")
+            print(f"step {i}: player {player} played action {action}")
         else:
             if render:
                 game.render(canvas, state)
