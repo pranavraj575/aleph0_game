@@ -14,7 +14,9 @@ def play_game(
     random_players,
     screenshot_dir=None,
     render=True,
+    render_opponent=False,
     max_depth=float("inf"),
+    verbose=False,
 ):
     if render:
         canvas = game.get_canvas()
@@ -30,12 +32,15 @@ def play_game(
         mask = game.action_mask(state)
         player = game.player(state)
         if player in random_players:
+            if render and render_opponent:
+                game.render(canvas, state)
             action = game.sample_from_action_mask(mask)
             if game.has_special_actions():
                 action = (tuple(map(int, action[0])), int(action[1]))
             else:
                 action = tuple(map(int, action))
-            print(f"step {i}: player {player} played action {action}")
+            if verbose:
+                print(f"step {i}: player {player} played action {action}")
         else:
             if render:
                 game.render(canvas, state)
@@ -78,8 +83,10 @@ def play_game(
         game.save_screenshot(state, os.path.join(screenshot_dir, str(i)))
     if render:
         game.close_canvas(canvas)
-    print("game completed, rewards are:")
-    print(total_rwd.numpy())
+    if verbose:
+        print("game completed, rewards are:")
+        print(total_rwd.numpy())
+    return i, total_rwd
 
 
 def create_gif(image_paths, output_gif_path, duration=200):
@@ -102,14 +109,16 @@ def create_gif(image_paths, output_gif_path, duration=200):
     assert colors is not None
     _, background_color = max(colors, key=lambda x: x[0])
 
-    # resize all images to the maximum image size
-    resized_imgs = [Image.new(mode=im.mode, size=(W, H), color=background_color) for im in images]
-    for im, canvas_im in zip(images, resized_imgs):
-        canvas_im.paste(im)
-    resized_imgs[0].save(
+    # resize images to the maximum image size
+    def resized(im):
+        resized = Image.new(mode=im.mode, size=(W, H), color=background_color)
+        resized.paste(im)
+        return resized
+
+    resized(images[0]).save(
         output_gif_path,
         save_all=True,
-        append_images=resized_imgs[1:],
+        append_images=(resized(im) for im in images[1:]),
         duration=duration,
         loop=0,
     )
@@ -130,6 +139,7 @@ if __name__ == "__main__":
     p.add_argument("game", choices=list(implemented_games.keys()), help="game to play")
     p.add_argument("--args", required=False, type=str, default=[], nargs="+", help="keyword arguments of game, in format arg1:value1 arg2:value2 ...")
     p.add_argument("--no_render", action="store_true", help="dont render the game")
+    p.add_argument("--opp_render", action="store_true", help="render opponent turns")
     p.add_argument("--screenshot_dir", required=False, type=str, help="save screenshots to a directory")
     p.add_argument("--overwrite", action="store_true", help="overwrite screenshot dir (if exists)")
     p.add_argument("--save_gif", required=False, type=str, help="save gif of the screenshots to this file")
@@ -156,8 +166,25 @@ if __name__ == "__main__":
         random_players=args.random_players,
         screenshot_dir=args.screenshot_dir,
         render=not args.no_render,
+        render_opponent=args.opp_render,
         max_depth=args.max_depth if args.max_depth >= 0 else float("inf"),
+        verbose=True,
     )
+    if False:
+        stuff = []
+        for seed in range(699, 4554):
+            torch.random.manual_seed(seed)
+            i, rwd = play_game(
+                game=game,
+                random_players=args.random_players,
+                screenshot_dir=args.screenshot_dir,
+                render=not args.no_render,
+                render_opponent=args.opp_render,
+                max_depth=args.max_depth if args.max_depth >= 0 else float("inf"),
+            )
+            stuff.append((i, rwd, seed))
+            print(stuff)
+            print(min(stuff, key=lambda x: x[0]))
     if args.save_gif is not None:
         assert args.screenshot_dir is not None, "if saving gif, screenshot_dir must be specified"
         os.makedirs(os.path.dirname(args.save_gif), exist_ok=True)
