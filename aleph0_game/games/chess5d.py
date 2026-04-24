@@ -941,9 +941,12 @@ class Chess5d(Game):
             added = added + " " * max(time_indices[t] - len(added), 0)
             added += " " * max((self.BOARD_SIZE + 2 * len(board_sep) - len(str(t))) // 2, 0)
             added += str(t)
-        added = added + " " * max(len(nl) - 1 - len(present_token) - len(added), 0) + present_token + "\n"
 
-        s = temp + added + s
+        if len(added) < length_to_place_present:
+            added = added + " " * (length_to_place_present - len(added))
+        added = added[:length_to_place_present] + present_token + added[length_to_place_present:]
+
+        s = temp + added + "\n" + s
         s += f"PLAYER {(1 - state.player) // 2}\n"
         if state.piece_held != 0:
             s += f"PIECE HELD: {self.piece_to_str(state.piece_held)} from {state.held_piece_origin.numpy()}\n"
