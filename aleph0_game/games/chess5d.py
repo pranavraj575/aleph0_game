@@ -903,7 +903,9 @@ class Chess5d(Game):
         present = self.get_present(board=state.board, center_timeline=state.center_timeline)
 
         length_to_place_present = -1
+        time_indices = []
         present_token = "%"
+        board_sep = "||"
         nl = ""
 
         for dim in range(state.board.shape[1] - 1, -1, -1):
@@ -912,8 +914,8 @@ class Chess5d(Game):
             if dim < active_rng[0] or dim >= active_rng[1]:
                 s += "(INACTIVE)"
             s += f"DIM {dim}:\n"
-            for i in range(self.BOARD_SIZE - 1, -1, -1):
-                rows = state.board[:, dim, i, :].cpu().numpy()
+            for t in range(self.BOARD_SIZE - 1, -1, -1):
+                rows = state.board[:, dim, t, :].cpu().numpy()
                 row = "||".join("".join(map(self.piece_to_str, row)) for row in rows)
                 sp = str(row)
 
@@ -923,6 +925,9 @@ class Chess5d(Game):
                     past_row = "||".join("".join(map(self.piece_to_str, row)) for row in past_rows)
                     length_to_place_present = len(past_row) + 1
                     nl = " " * length_to_place_present + present_token + "\n"
+                    for k in range(state.board.shape[0]):
+                        past_rows = state.board[:k, 0, 0, :].cpu().numpy()
+                        time_indices.append(len(board_sep.join("".join(map(self.piece_to_str, row)) for row in past_rows)))
 
                 if len(sp) < length_to_place_present:
                     sp = sp + " " * (length_to_place_present - len(sp))
@@ -930,7 +935,15 @@ class Chess5d(Game):
                 s += "\n"
             s += "\n" + nl
 
-        s = nl[: -(1 + len(f"PRESENT TIME{present_token}"))] + f"PRESENT TIME{present_token}\n" + nl + s
+        temp = nl[: -(1 + len(f"PRESENT TIME{present_token}"))] + f"PRESENT TIME{present_token}\n"
+        added = ""
+        for t in range(len(time_indices)):
+            added = added + " " * max(time_indices[t] - len(added), 0)
+            added += " " * max((self.BOARD_SIZE + 2 * len(board_sep) - len(str(t))) // 2, 0)
+            added += str(t)
+        added = added + " " * max(len(nl) - 1 - len(present_token) - len(added), 0) + present_token + "\n"
+
+        s = temp + added + s
         s += f"PLAYER {(1 - state.player) // 2}\n"
         if state.piece_held != 0:
             s += f"PIECE HELD: {self.piece_to_str(state.piece_held)} from {state.held_piece_origin.numpy()}\n"
