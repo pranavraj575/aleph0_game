@@ -1,3 +1,5 @@
+import os.path
+
 import torch
 from PIL import Image, ImageDraw, ImageFont
 
@@ -187,10 +189,10 @@ class Game:
         """
         raise NotImplementedError
 
-    def save_screenshot_ascii(self, ascii_text, output_file):
+    def save_screenshot_ascii(self, ascii_text, output_file, bold=False):
         im = Image.new("RGB", (0, 0), "white")
-
-        font = ImageFont.truetype("Pillow/Tests/fonts/FreeMono.ttf", 40)
+        font_fn = "FreeMonoBold.ttf" if bold else "FreeMono.ttf"
+        font = ImageFont.truetype(os.path.join(os.path.dirname(__file__), "display_fonts", font_fn), 40)
 
         draw = ImageDraw.Draw(im)
         _, _, W, H = draw.textbbox((0, 0), ascii_text, font=font)
