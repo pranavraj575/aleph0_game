@@ -1,3 +1,5 @@
+import os.path
+
 import torch
 from PIL import Image, ImageDraw, ImageFont
 
@@ -190,7 +192,7 @@ class Game:
     def save_screenshot_ascii(self, ascii_text, output_file):
         im = Image.new("RGB", (0, 0), "white")
 
-        font = ImageFont.truetype("Pillow/Tests/fonts/FreeMono.ttf", 40)
+        font = ImageFont.truetype(os.path.join(os.path.dirname(__file__), "display_fonts", "FreeMono.ttf"), 40)
 
         draw = ImageDraw.Draw(im)
         _, _, W, H = draw.textbbox((0, 0), ascii_text, font=font)
