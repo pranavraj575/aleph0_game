@@ -64,6 +64,10 @@ The following check is used for determining if the tower falls:
 
 This check is done twice on each player's turn: after removing a block, and after placing a block.
 
+Note:
+The graphics are made with matplot 3d plotting, which has a [known issue](https://github.com/matplotlib/matplotlib/issues/29060) with ordering overlaps incorrectly.
+Although the visualizations are not entirely accurate, the block locations, internal game logic, and agent observations are all correct.
+
 To replicate the examples shown:
 
 ```shell
