@@ -1006,8 +1006,9 @@ class Chess5d(Game):
 
 
 class Chess2d(Chess5d):
-    def __init__(self, stalemate_is_win=False):
+    def __init__(self, stalemate_is_win=False, keep_history=False):
         super().__init__(stalemate_is_win=stalemate_is_win)
+        self.keep_history = keep_history
 
     def has_special_actions(self):
         return False
@@ -1034,6 +1035,30 @@ class Chess2d(Chess5d):
         if (not terminal) and (new_state.piece_held == 0):
             new_state, rewards, terminal, auxp = super().step(new_state, (-torch.ones(4, dtype=torch.int), torch.tensor(0)))
             return new_state, rewards, terminal, aux | auxp
+        if not self.keep_history:
+            T = new_state.board.shape[0]
+            # history of either 3 or 4, keeping the parity of the boards even
+            #  needs at least 3 boards since after player i captures king on board t
+            #   board t-1 is player i's turn, where they can capture player -i's king
+            #   board t-2 is player -i's turn, this is checkmate or stalemate, since next turn allows player i to capture king
+            #  needs parity of the boards to be same so that the current player is consistent
+            history_len = 3 + ((T + 1) % 2)
+            new_board = new_state.board[-history_len:]
+            Tp = new_board.shape[0]
+            new_held_origin = new_state.held_piece_origin
+            if new_state.piece_held:
+                new_held_origin = new_held_origin - torch.tensor([(T - Tp), 0, 0, 0])
+            new_state = State(
+                board=new_board,
+                player=new_state.player,
+                center_timeline=new_state.center_timeline,
+                timestep=new_state.timestep,
+                board_spawn_timestep=new_state.board_spawn_timestep[-history_len:],
+                start_turn_timestep=new_state.start_turn_timestep,
+                prev_start_turn_timestep=new_state.prev_start_turn_timestep,
+                piece_held=new_state.piece_held,
+                held_piece_origin=new_held_origin,
+            )
         return new_state, rewards, terminal, aux
 
     def get_game_str(self, state):
@@ -1077,6 +1102,7 @@ class Chess2d(Chess5d):
         :return:
         """
         # dont need hints of check, checkmate, or capturing
+        og_action = action
         action = action.replace("#", "").replace("+", "").replace("x", "")
         if "=" in action:
             # TODO: how to promote to a non-queen, maybe have special moves?
@@ -1146,8 +1172,7 @@ class Chess2d(Chess5d):
                         out.append((pick_idx, place_idx))
                     else:
                         return pick_idx, place_idx
-
-        assert len(out) > 0, f"{self.get_game_str(state)}\n with this board, no moves found to match " + action
+        assert len(out) > 0, f"{self.get_game_str(state)}\n with this board, no moves found to match {og_action}"
         return out
 
     def to_algebraic_notation(self, state: State, pick_action, place_action):
