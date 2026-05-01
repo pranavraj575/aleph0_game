@@ -127,7 +127,7 @@ class Chess5d(Game):
     UNICORN = 11  # attacks on triagonls
     DRAGON = 12  # attacks on quadragonals
 
-    def __init__(self, stalemate_is_win=True):
+    def __init__(self, stalemate_is_win: bool = True):
         """
         :param stalemate_is_win: whether to count stalemate as a win instead of draw
             this save a ton of computation in large games
@@ -1006,7 +1006,7 @@ class Chess5d(Game):
 
 
 class Chess2d(Chess5d):
-    def __init__(self, stalemate_is_win=False, keep_history=False):
+    def __init__(self, stalemate_is_win: bool = False, keep_history: bool = False):
         super().__init__(stalemate_is_win=stalemate_is_win)
         self.keep_history = keep_history
 

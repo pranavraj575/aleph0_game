@@ -1,5 +1,6 @@
 import dataclasses
 import itertools
+from typing import Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -30,18 +31,18 @@ class Jenga(Game):
 
     def __init__(
         self,
-        players=2,
-        initial_height=18,
-        scale=0.01,
-        std_block_size=torch.tensor((0.075, 0.025, 0.015)),
-        std_block_spacing=0,  # .005,
-        std_wood_density=0.5,
-        tolerance=1e-8,
-        k=3,
-        deterministic=False,
-        instability_scale=0.0005,
-        position_stdev=0.002,
-        angular_stdev=0.01,
+        players: int = 2,
+        initial_height: int = 18,
+        scale: float = 0.01,
+        std_block_size: Tuple[float] = (0.075, 0.025, 0.015),
+        std_block_spacing: float = 0,  # .005,
+        std_wood_density: float = 0.5,
+        tolerance: float = 1e-8,
+        k: int = 3,
+        deterministic: bool = False,
+        instability_scale: float = 0.0005,
+        position_stdev: float = 0.002,
+        angular_stdev: float = 0.01,
     ):
         """
         :param players: number of players
@@ -62,6 +63,7 @@ class Jenga(Game):
         :param position_stdev: (in meters) stdev of noise to add to the x and y location of blocks upon placement
         :param angular_stdev: (radians) stdev of noise to add to the angle of blocks upon placement
         """
+        std_block_size = torch.tensor(std_block_size)
         self.num_players = players
         self.initial_height = initial_height
         self.k = k

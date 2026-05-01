@@ -18,7 +18,7 @@ class PyspielGame(Game):
     use pyspiel implemented games
     """
 
-    def __init__(self, game_string):
+    def __init__(self, game_string: str):
         self.pyspiel_game: pyspiel.Game = pyspiel.load_game(game_string)
 
     def num_agents(self):

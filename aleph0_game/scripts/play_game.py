@@ -1,5 +1,6 @@
 import argparse
 import ast
+import inspect
 import os
 import shutil
 
@@ -138,6 +139,7 @@ if __name__ == "__main__":
 
     p.add_argument("game", choices=list(implemented_games.keys()), help="game to play")
     p.add_argument("--args", required=False, type=str, default=[], nargs="+", help="keyword arguments of game, in format arg1:value1 arg2:value2 ...")
+    p.add_argument("--show_signature", action="store_true", help="display signature of a particular game, then quit")
     p.add_argument("--no_render", action="store_true", help="dont render the game")
     p.add_argument("--opp_render", action="store_true", help="render opponent turns")
     p.add_argument("--screenshot_dir", required=False, type=str, help="save screenshots to a directory")
@@ -149,6 +151,9 @@ if __name__ == "__main__":
     p.add_argument("--seed", required=False, type=int, default=69, help="random seed for random players")
     args = p.parse_args()
     Game = implemented_games[args.game]
+    if args.show_signature:
+        print("parameters:", inspect.signature(Game))
+        quit()
     game_kwargs = [arg.split(":") for arg in args.args]
     assert all(len(t) == 2 for t in game_kwargs), "--args must be formatted like arg1:value arg2:value ..."
     game_kwargs = {k: ast.literal_eval(v) for k, v in game_kwargs}

@@ -5,7 +5,7 @@ from .game import Game
 
 
 class MNK(Game):
-    def __init__(self, m, n, k):
+    def __init__(self, m: int, n: int, k: int):
         self.m = m
         self.n = n
         self.k = k
