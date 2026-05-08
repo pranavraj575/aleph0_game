@@ -93,7 +93,7 @@ Implemented [5D chess with multiverse time travel](https://www.5dchesswithmultiv
   * Otherwise, this is a stalemate, and the game ends in a draw.
 * Since this check involves considering every sequence of moves that could constitute a turn, it is computationally expensive and turned off by default.
   * There is a slight optimization where we do not need to check ALL permutations of moves that can make a turn. 
-    See `Chess5d.get_all_possible_turns` in [chess5d.py](aleph0_game/games/chess5d.py) for details.
+    See `Chess5d.get_all_possible_turns` in [`aleph0_game/games/chess5d.py`](aleph0_game/games/chess5d.py) for details.
 
 To replicate the example shown (saving images causes this to run for a while):
 ```shell
@@ -117,7 +117,7 @@ python aleph0_game/scripts/play_game.py chess2d --overwrite --save_gif images/sa
 ![](https://github.com/pranavraj575/aleph0_game/blob/main/images/sample_checkers_game.gif)
 
 
-Wrapper for checkers game in [open_spiel](https://github.com/google-deepmind/open_spiel). 
+Wrapper for checkers game in [`open_spiel`](https://github.com/google-deepmind/open_spiel). 
 
 To replicate the example shown:
 ```shell
