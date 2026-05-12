@@ -895,7 +895,7 @@ class Chess5d(Game):
 
     def save_screenshot(self, state, output_file, **kwargs):
         ascii_text = self.get_game_str(state=state)
-        self.save_screenshot_ascii(ascii_text=ascii_text, output_file=output_file, bold=True)
+        self.save_screenshot_ascii(ascii_text=ascii_text, output_file=output_file, bold=True, **kwargs)
 
     def get_game_str(self, state):
         s = ""

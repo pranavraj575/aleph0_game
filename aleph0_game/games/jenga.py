@@ -1,4 +1,5 @@
 import dataclasses
+import inspect
 import itertools
 from typing import Tuple
 
@@ -34,7 +35,7 @@ class Jenga(Game):
         players: int = 2,
         initial_height: int = 18,
         scale: float = 0.01,
-        std_block_size: Tuple[float] = (0.075, 0.025, 0.015),
+        std_block_size: Tuple[float, float, float] = (0.075, 0.025, 0.015),
         std_block_spacing: float = 0,  # .005,
         std_wood_density: float = 0.5,
         tolerance: float = 1e-8,
@@ -63,12 +64,11 @@ class Jenga(Game):
         :param position_stdev: (in meters) stdev of noise to add to the x and y location of blocks upon placement
         :param angular_stdev: (radians) stdev of noise to add to the angle of blocks upon placement
         """
-        std_block_size = torch.tensor(std_block_size)
         self.num_players = players
         self.initial_height = initial_height
         self.k = k
         self.scale = scale  # in m/u where u is the unit we use
-        self.std_block_size = std_block_size / self.scale  # convert from m to u
+        self.std_block_size = torch.tensor(std_block_size) / self.scale  # convert from m to u
         self.std_block_spacing = std_block_spacing / self.scale  # convert from m to u
         self.std_wood_density = std_wood_density * self.scale**3  # convert from kg/m^3 to kg/u^3
         self.tolerance = tolerance / self.scale  # convert from m to u
@@ -242,7 +242,11 @@ class Jenga(Game):
         plt.show()
         canvas = plt.figure().add_subplot(projection="3d")
         self.render(canvas, state)
-        plt.savefig(output_file, bbox_inches="tight")
+
+        keywords = inspect.getfullargspec(plt.savefig).args
+        keywords = keywords + ["dpi"]
+        filtered_kwargs = {k: kwargs[k] for k in keywords if k in kwargs}
+        plt.savefig(output_file, bbox_inches=kwargs.get("bbox_inches", "tight"), **filtered_kwargs)
         plt.close()
 
     def render_block(self, block, ax, only_frame, label=None, **plot_kwargs):

@@ -18,7 +18,10 @@ def play_game(
     render_opponent=False,
     max_depth=float("inf"),
     verbose=False,
+    display_kwargs=None,
 ):
+    if display_kwargs is None:
+        display_kwargs = dict()
     if render:
         canvas = game.get_canvas()
     else:
@@ -29,7 +32,7 @@ def play_game(
     i = 0
     while not terminal:
         if screenshot_dir is not None:
-            game.save_screenshot(state, os.path.join(screenshot_dir, str(i)))
+            game.save_screenshot(state, os.path.join(screenshot_dir, str(i)), **display_kwargs)
         mask = game.action_mask(state)
         player = game.player(state)
         if player in random_players:
@@ -81,7 +84,7 @@ def play_game(
         total_rwd += rwd
 
     if screenshot_dir is not None:
-        game.save_screenshot(state, os.path.join(screenshot_dir, str(i)))
+        game.save_screenshot(state, os.path.join(screenshot_dir, str(i)), **display_kwargs)
     if render:
         game.close_canvas(canvas)
     if verbose:
@@ -149,6 +152,9 @@ if __name__ == "__main__":
     p.add_argument("--max_depth", required=False, type=int, default=-1, help="maximum number of moves")
     p.add_argument("--random_players", required=False, type=int, default=[], nargs="+", help="indices of players that will be making random moves")
     p.add_argument("--seed", required=False, type=int, default=69, help="random seed for random players")
+    p.add_argument("--dpi", required=False, type=int, default=None, help="dpi for screenshots of relevant games (e.g. jenga)")
+    p.add_argument("--ascii_text_size", required=False, type=int, default=40, help="ascii text size for screenshots of relevant games (e.g. chess)")
+
     args = p.parse_args()
     Game = implemented_games[args.game]
     if args.show_signature:
@@ -174,22 +180,8 @@ if __name__ == "__main__":
         render_opponent=args.opp_render,
         max_depth=args.max_depth if args.max_depth >= 0 else float("inf"),
         verbose=True,
+        display_kwargs={"dpi": args.dpi, "ascii_text_size": args.ascii_text_size},
     )
-    if False:
-        stuff = []
-        for seed in range(699, 4554):
-            torch.random.manual_seed(seed)
-            i, rwd = play_game(
-                game=game,
-                random_players=args.random_players,
-                screenshot_dir=args.screenshot_dir,
-                render=not args.no_render,
-                render_opponent=args.opp_render,
-                max_depth=args.max_depth if args.max_depth >= 0 else float("inf"),
-            )
-            stuff.append((i, rwd, seed))
-            print(stuff)
-            print(min(stuff, key=lambda x: x[0]))
     if args.save_gif is not None:
         assert args.screenshot_dir is not None, "if saving gif, screenshot_dir must be specified"
         os.makedirs(os.path.dirname(args.save_gif), exist_ok=True)

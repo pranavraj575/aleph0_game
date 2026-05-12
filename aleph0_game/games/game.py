@@ -189,10 +189,10 @@ class Game:
         """
         raise NotImplementedError
 
-    def save_screenshot_ascii(self, ascii_text, output_file, bold=False):
+    def save_screenshot_ascii(self, ascii_text, output_file, bold=False, **kwargs):
         im = Image.new("RGB", (0, 0), "white")
         font_fn = "FreeMonoBold.ttf" if bold else "FreeMono.ttf"
-        font = ImageFont.truetype(os.path.join(os.path.dirname(__file__), "display_fonts", font_fn), 40)
+        font = ImageFont.truetype(os.path.join(os.path.dirname(__file__), "display_fonts", font_fn), kwargs.get("ascii_text_size", 40))
 
         draw = ImageDraw.Draw(im)
         _, _, W, H = draw.textbbox((0, 0), ascii_text, font=font)

@@ -100,7 +100,7 @@ class MNK(Game):
 
     def save_screenshot(self, state, output_file, **kwargs):
         ascii_text = self.get_game_str(state=state)
-        self.save_screenshot_ascii(ascii_text=ascii_text, output_file=output_file)
+        self.save_screenshot_ascii(ascii_text=ascii_text, output_file=output_file, **kwargs)
 
 
 class TicTacToe(MNK):
